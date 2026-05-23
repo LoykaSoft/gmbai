@@ -1,0 +1,324 @@
+{
+  "name": "GMB - Ana Workflow (Yorum Çekme + AI + Yayınlama)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 15 }]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Her 15 Dakikada Bir",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, sector, gmb_location_id, gmb_access_token, gmb_refresh_token, system_prompt, approval_mode, response_length, info_card FROM firms WHERE is_active = true AND gmb_access_token IS NOT NULL AND gmb_refresh_token IS NOT NULL"
+      },
+      "id": "get-active-firms",
+      "name": "Aktif Firmaları Çek",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem"
+      },
+      "id": "loop-firms",
+      "name": "Her Firma İçin",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oauth2.googleapis.com/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "client_id", "value": "={{ $env.GOOGLE_CLIENT_ID }}" },
+            { "name": "client_secret", "value": "={{ $env.GOOGLE_CLIENT_SECRET }}" },
+            { "name": "refresh_token", "value": "={{ $json.gmb_refresh_token }}" },
+            { "name": "grant_type", "value": "refresh_token" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "refresh-token",
+      "name": "Access Token Yenile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://mybusiness.googleapis.com/v4/{{ $('Her Firma İçin').item.json.gmb_location_id }}/reviews?pageSize=50",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-gmb-reviews",
+      "name": "GMB Yorumları Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const reviews = $input.item.json.reviews || [];\nconst firm = $('Her Firma İçin').item.json;\nconst accessToken = $('Access Token Yenile').item.json.access_token;\n\n// Yalnızca yanıtsız yorumları filtrele\nconst unanswered = reviews.filter(r => !r.reviewReply);\n\nreturn unanswered.map(r => ({\n  json: {\n    firm_id: firm.id,\n    firm_name: firm.name,\n    firm_sector: firm.sector,\n    system_prompt: firm.system_prompt || '',\n    approval_mode: firm.approval_mode,\n    response_length: firm.response_length || 'medium',\n    info_card: firm.info_card || {},\n    gmb_location_id: firm.gmb_location_id,\n    access_token: accessToken,\n    gmb_review_id: r.reviewId,\n    reviewer_name: r.reviewer?.displayName || 'Anonim',\n    reviewer_id: r.reviewer?.profilePhotoUrl || null,\n    rating: ({'ONE':1,'TWO':2,'THREE':3,'FOUR':4,'FIVE':5})[r.starRating] || 3,\n    review_text: r.comment || '',\n    review_date: r.createTime,\n  }\n}));"
+      },
+      "id": "filter-unanswered",
+      "name": "Yanıtsızları Filtrele",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id }}', '{{ $json.reviewer_name }}', {{ $json.reviewer_id ? `'${$json.reviewer_id}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', '{{ $json.review_date }}', 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
+      },
+      "id": "save-review",
+      "name": "Yorumu Kaydet (Tekrar Önle)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1560, 300],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "check-new",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-new-review",
+      "name": "Yeni Yorum mu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list" },
+        "messages": {
+          "values": [
+            {
+              "content": "Aşağıdaki müşteri yorumunu analiz et ve YALNIZCA geçerli JSON döndür (başka hiçbir şey yazma):\n{\n  \"sentiment\": \"positive|negative|neutral\",\n  \"topics\": [\"servis\", \"yemek\", \"fiyat\", \"temizlik\", \"atmosfer\"],\n  \"importance_score\": 1,\n  \"keywords\": [\"kelime1\"],\n  \"has_critical_keyword\": false,\n  \"critical_keywords\": []\n}\n\nKritik kelimeler: zehirlendim, sağlık, hastane, şikayet, dava, iade, skandal, gıda zehirlenmesi"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.rating }} yıldız — Müşteri: {{ $json.reviewer_name }}\nYorum: {{ $json.review_text || '(yorum metni yok)' }}"
+            }
+          ]
+        },
+        "options": { "maxTokens": 300, "temperature": 0 }
+      },
+      "id": "ai-analyze",
+      "name": "AI - Yorum Analizi",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [2000, 200],
+      "credentials": { "openAiApi": { "id": "openai-key", "name": "OpenAI API" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.item.json.message?.content || '{}';\nlet analysis;\ntry {\n  // Markdown kod bloğu varsa temizle\n  const cleaned = raw.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  analysis = JSON.parse(cleaned);\n} catch(e) {\n  analysis = { sentiment: 'neutral', topics: [], importance_score: 3, keywords: [], has_critical_keyword: false, critical_keywords: [] };\n}\n\nconst review = $('Yeni Yorum mu?').item.json;\n\nreturn [{ json: { ...review, analysis } }];"
+      },
+      "id": "parse-analysis",
+      "name": "Analizi Parse Et",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO review_analysis (review_id, firm_id, sentiment, topics, importance_score, keywords, has_critical_keyword, critical_keywords, created_at)\nVALUES (\n  '{{ $json.id }}',\n  '{{ $json.firm_id }}',\n  '{{ $json.analysis.sentiment }}',\n  '{{ JSON.stringify($json.analysis.topics || []) }}'::jsonb,\n  {{ $json.analysis.importance_score || 3 }},\n  '{{ JSON.stringify($json.analysis.keywords || []) }}'::jsonb,\n  {{ $json.analysis.has_critical_keyword || false }},\n  '{{ JSON.stringify($json.analysis.critical_keywords || []) }}'::jsonb,\n  NOW()\n)"
+      },
+      "id": "save-analysis",
+      "name": "Analizi Kaydet",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2440, 200],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, opening, body, closing FROM templates\nWHERE (firm_id = '{{ $json.firm_id }}' OR firm_id IS NULL)\nAND rating_range = CASE\n  WHEN {{ $json.rating }} >= 5 THEN '5'\n  WHEN {{ $json.rating }} >= 3 THEN '3-4'\n  ELSE '1-2'\nEND\nORDER BY firm_id NULLS LAST, created_at DESC\nLIMIT 1"
+      },
+      "id": "select-template",
+      "name": "Şablon Seç",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2660, 200],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const review = $('Analizi Parse Et').item.json;\nconst template = $input.item.json;\nconst ic = review.info_card || {};\n\nconst lengthMap = { short: '1-2 cümle', medium: '3-4 cümle', long: 'detaylı 5+ cümle' };\nconst length = lengthMap[review.response_length] || '3-4 cümle';\n\nconst systemPrompt = [\n  `Sen ${review.firm_name} adına cevap veren bir müşteri hizmetleri asistanısın.`,\n  review.system_prompt || '',\n  ic.address    ? `Adres: ${ic.address}` : '',\n  ic.hours      ? `Çalışma saatleri: ${ic.hours}` : '',\n  ic.highlights ? `Öne çıkan ürünler/hizmetler: ${ic.highlights}` : '',\n  ic.faq        ? `Sık sorulan sorular: ${ic.faq}` : '',\n  ic.forbidden_info ? `Kesinlikle söyleme: ${ic.forbidden_info}` : '',\n].filter(Boolean).join('\\n');\n\nconst userPrompt = [\n  `${review.rating} yıldızlı müşteri yorumu:`,\n  `\"${review.review_text || '(yorum metni yok)'}\"`,\n  '',\n  template.opening ? `Şablon Açılış: ${template.opening}` : '',\n  template.body    ? `Şablon Gövde Yönlendirme: ${template.body}` : '',\n  template.closing ? `Şablon Kapanış: ${template.closing}` : '',\n  '',\n  `${length} uzunluğunda profesyonel bir cevap yaz. Yalnızca cevap metnini döndür.`,\n].filter(s => s !== null).join('\\n');\n\nreturn [{ json: { ...review, template_id: template.id || null, systemPrompt, userPrompt } }];"
+      },
+      "id": "build-prompt",
+      "name": "Prompt Oluştur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 200]
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list" },
+        "messages": {
+          "values": [
+            { "content": "={{ $json.systemPrompt }}" },
+            { "role": "user", "content": "={{ $json.userPrompt }}" }
+          ]
+        },
+        "options": { "maxTokens": 500, "temperature": 0.7 }
+      },
+      "id": "ai-generate",
+      "name": "AI - Cevap Üret",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [3100, 200],
+      "credentials": { "openAiApi": { "id": "openai-key", "name": "OpenAI API" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const review = $('Prompt Oluştur').item.json;\nconst aiResult = $input.item.json;\n\nconst aiResponse = aiResult.message?.content || '';\nconst tokensInput = aiResult.usage?.prompt_tokens || 0;\nconst tokensOutput = aiResult.usage?.completion_tokens || 0;\nconst costUsd = (tokensInput * 0.0000025) + (tokensOutput * 0.00001);\n\n// 1-2 yıldız her zaman onay bekler\nconst forcePending = review.rating <= 2;\nconst autoPublish = !review.approval_mode && !forcePending;\n\nreturn [{ json: {\n  ...review,\n  ai_response: aiResponse,\n  tokens_input: tokensInput,\n  tokens_output: tokensOutput,\n  cost_usd: costUsd,\n  auto_publish: autoPublish,\n  new_status: autoPublish ? 'auto_published' : 'pending',\n} }];"
+      },
+      "id": "calc-cost",
+      "name": "Maliyet Hesapla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reviews SET\n  ai_response = '{{ $json.ai_response.replace(/'/g, \"''\") }}',\n  template_id = {{ $json.template_id ? `'${$json.template_id}'` : 'NULL' }},\n  tokens_input = {{ $json.tokens_input }},\n  tokens_output = {{ $json.tokens_output }},\n  cost_usd = {{ $json.cost_usd }},\n  status = '{{ $json.new_status }}',\n  {{ $json.auto_publish ? `final_response = '${$json.ai_response.replace(/'/g, \"''\"))', published_at = NOW(),` : '' }}\n  updated_at = NOW()\nWHERE id = '{{ $json.id }}'"
+      },
+      "id": "update-review",
+      "name": "Yorumu Güncelle",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3540, 200],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO usage_logs (firm_id, review_id, model, tokens_input, tokens_output, total_tokens, cost_usd, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.id }}', 'gpt-4o', {{ $json.tokens_input }}, {{ $json.tokens_output }}, {{ $json.tokens_input + $json.tokens_output }}, {{ $json.cost_usd }}, NOW())"
+      },
+      "id": "save-usage",
+      "name": "Kullanım Logla",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3760, 200],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "check-auto",
+              "leftValue": "={{ $('Maliyet Hesapla').item.json.auto_publish }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equal" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "should-publish",
+      "name": "Otomatik Yayınla?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3980, 200]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://mybusiness.googleapis.com/v4/{{ $('Maliyet Hesapla').item.json.gmb_location_id }}/reviews/{{ $('Maliyet Hesapla').item.json.gmb_review_id }}/reply",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Access Token Yenile').item.json.access_token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"comment\": \"{{ $('Maliyet Hesapla').item.json.ai_response.replace(/\"/g, '\\\\\"') }}\"}",
+        "options": {}
+      },
+      "id": "publish-to-gmb",
+      "name": "GMB'ye Yayınla",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4200, 100]
+    }
+  ],
+  "connections": {
+    "Her 15 Dakikada Bir": { "main": [[{ "node": "Aktif Firmaları Çek", "type": "main", "index": 0 }]] },
+    "Aktif Firmaları Çek": { "main": [[{ "node": "Her Firma İçin", "type": "main", "index": 0 }]] },
+    "Her Firma İçin": { "main": [[{ "node": "Access Token Yenile", "type": "main", "index": 0 }]] },
+    "Access Token Yenile": { "main": [[{ "node": "GMB Yorumları Çek", "type": "main", "index": 0 }]] },
+    "GMB Yorumları Çek": { "main": [[{ "node": "Yanıtsızları Filtrele", "type": "main", "index": 0 }]] },
+    "Yanıtsızları Filtrele": { "main": [[{ "node": "Yorumu Kaydet (Tekrar Önle)", "type": "main", "index": 0 }]] },
+    "Yorumu Kaydet (Tekrar Önle)": { "main": [[{ "node": "Yeni Yorum mu?", "type": "main", "index": 0 }]] },
+    "Yeni Yorum mu?": {
+      "main": [
+        [{ "node": "AI - Yorum Analizi", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "AI - Yorum Analizi": { "main": [[{ "node": "Analizi Parse Et", "type": "main", "index": 0 }]] },
+    "Analizi Parse Et": { "main": [[{ "node": "Analizi Kaydet", "type": "main", "index": 0 }]] },
+    "Analizi Kaydet": { "main": [[{ "node": "Şablon Seç", "type": "main", "index": 0 }]] },
+    "Şablon Seç": { "main": [[{ "node": "Prompt Oluştur", "type": "main", "index": 0 }]] },
+    "Prompt Oluştur": { "main": [[{ "node": "AI - Cevap Üret", "type": "main", "index": 0 }]] },
+    "AI - Cevap Üret": { "main": [[{ "node": "Maliyet Hesapla", "type": "main", "index": 0 }]] },
+    "Maliyet Hesapla": { "main": [[{ "node": "Yorumu Güncelle", "type": "main", "index": 0 }]] },
+    "Yorumu Güncelle": { "main": [[{ "node": "Kullanım Logla", "type": "main", "index": 0 }]] },
+    "Kullanım Logla": { "main": [[{ "node": "Otomatik Yayınla?", "type": "main", "index": 0 }]] },
+    "Otomatik Yayınla?": {
+      "main": [
+        [{ "node": "GMB'ye Yayınla", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-05-23T00:00:00.000Z",
+  "versionId": "1"
+}

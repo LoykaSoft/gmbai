@@ -1,0 +1,90 @@
+{
+  "name": "GMB - Yanıtsız Yorum Alarm Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Her Saat",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.id, r.firm_id, r.reviewer_name, r.rating, r.review_text, r.created_at,\n  f.name as firm_name,\n  EXTRACT(EPOCH FROM (NOW() - r.created_at)) / 3600 as hours_waiting\nFROM reviews r\nJOIN firms f ON f.id = r.firm_id\nWHERE r.status = 'pending'\n  AND r.ai_response IS NOT NULL\nORDER BY r.created_at ASC"
+      },
+      "id": "get-pending",
+      "name": "Bekleyen Yorumları Çek",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const reviews = $input.all();\nconst thresholds = [4, 12, 24];\nconst alarms = [];\n\nfor (const item of reviews) {\n  const r = item.json;\n  const hours = parseFloat(r.hours_waiting);\n  for (const threshold of thresholds) {\n    // Eşiği tam geçtiyse alarm üret (1 saatlik pencerede)\n    if (hours >= threshold && hours < threshold + 1) {\n      alarms.push({\n        json: {\n          review_id: r.id,\n          firm_id: r.firm_id,\n          firm_name: r.firm_name,\n          reviewer_name: r.reviewer_name,\n          rating: r.rating,\n          hours_waiting: Math.floor(hours),\n          threshold,\n          message: `${r.firm_name}: ${r.reviewer_name} tarafından ${r.rating} yıldızlı yorum ${Math.floor(hours)} saattir yanıtsız bekliyor.`\n        }\n      });\n    }\n  }\n}\n\nreturn alarms.length > 0 ? alarms : [{ json: { no_alarms: true } }];"
+      },
+      "id": "check-thresholds",
+      "name": "Eşik Kontrol Et",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-alarm",
+              "leftValue": "={{ $json.no_alarms }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "notEqual" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-alarm",
+      "name": "Alarm Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (firm_id, type, message, review_id, created_at)\nVALUES (\n  '{{ $json.firm_id }}',\n  'unanswered_review',\n  '{{ $json.message }}',\n  '{{ $json.review_id }}',\n  NOW()\n)\nON CONFLICT DO NOTHING"
+      },
+      "id": "save-notification",
+      "name": "Bildirimi Kaydet",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 200],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    }
+  ],
+  "connections": {
+    "Her Saat": { "main": [[{ "node": "Bekleyen Yorumları Çek", "type": "main", "index": 0 }]] },
+    "Bekleyen Yorumları Çek": { "main": [[{ "node": "Eşik Kontrol Et", "type": "main", "index": 0 }]] },
+    "Eşik Kontrol Et": { "main": [[{ "node": "Alarm Var mı?", "type": "main", "index": 0 }]] },
+    "Alarm Var mı?": {
+      "main": [
+        [{ "node": "Bildirimi Kaydet", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-05-23T00:00:00.000Z",
+  "versionId": "1"
+}

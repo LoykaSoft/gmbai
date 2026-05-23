@@ -40,6 +40,8 @@ export default async function SettingsPage({
       .single(),
   ])
 
+  if (!firmData) redirect('/panel')
+
   // Pass a boolean sentinel — never send the real token to the client
   const firm = { ...firmData, gmb_access_token: tokenCheck?.gmb_access_token ? '1' : null }
 

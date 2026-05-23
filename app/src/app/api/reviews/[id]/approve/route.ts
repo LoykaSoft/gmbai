@@ -29,6 +29,9 @@ export async function PUT(
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 404 })
 
   const finalResponse = review.edited_response ?? review.ai_response
+  if (!finalResponse) {
+    return NextResponse.json({ error: 'No AI response to publish yet' }, { status: 400 })
+  }
 
   const { data, error } = await supabase
     .from('reviews')

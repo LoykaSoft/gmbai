@@ -94,17 +94,22 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
     const original = approvalMode
     const next = !approvalMode
     setApprovalMode(next)
-    const res = await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approval_mode: next }),
-    })
-    if (!res.ok) {
-      setApprovalMode(original) // rollback
-      setSaveError('Onay modu değiştirilemedi.')
-    } else {
-      setSavedSection('approval')
-      setTimeout(() => setSavedSection(null), 2500)
+    setSaving(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_mode: next }),
+      })
+      if (!res.ok) {
+        setApprovalMode(original) // rollback
+        setSaveError('Onay modu değiştirilemedi.')
+      } else {
+        setSavedSection('approval')
+        setTimeout(() => setSavedSection(null), 2500)
+      }
+    } finally {
+      setSaving(false)
     }
   }
 

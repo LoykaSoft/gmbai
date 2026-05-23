@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { Star, Search, Check, X, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
+import { Star, Search, Check, X, Pencil, ChevronDown, ChevronUp, RefreshCw, Globe } from 'lucide-react'
 
 const STATUS_LABELS: Record<ReviewStatus, { label: string; color: string }> = {
   pending: { label: 'Bekliyor', color: 'bg-yellow-100 text-yellow-700' },
@@ -50,6 +50,15 @@ interface Props {
 export default function ReviewsClient({ initialReviews }: Props) {
   const router = useRouter()
   const [reviews, setReviews] = useState<Review[]>(initialReviews)
+
+  // Tekrar eden müşteri tespiti: aynı reviewer_id'den 2+ yorum varsa
+  const repeatCustomers = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of reviews) {
+      if (r.reviewer_id) counts.set(r.reviewer_id, (counts.get(r.reviewer_id) ?? 0) + 1)
+    }
+    return counts
+  }, [reviews])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState('all')
@@ -190,6 +199,18 @@ export default function ReviewsClient({ initialReviews }: Props) {
                       <span className="text-xs text-gray-400">
                         {new Date(review.review_date).toLocaleDateString('tr-TR')}
                       </span>
+                      {review.reviewer_id && (repeatCustomers.get(review.reviewer_id) ?? 0) > 1 && (
+                        <span className="flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                          <RefreshCw className="w-3 h-3" />
+                          Tekrar Müşteri
+                        </span>
+                      )}
+                      {review.review_language && review.review_language !== 'tr' && (
+                        <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium uppercase">
+                          <Globe className="w-3 h-3" />
+                          {review.review_language}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-600 mt-1.5 line-clamp-2">
                       {review.review_text ?? <span className="italic text-gray-400">Yorum metni yok</span>}

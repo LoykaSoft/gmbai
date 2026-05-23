@@ -103,3 +103,13 @@ export interface BlacklistWord {
   word: string
   created_at: string
 }
+
+export interface Notification {
+  id: string
+  firm_id: string
+  review_id: string | null
+  type: string
+  message: string
+  is_read: boolean
+  created_at: string
+}

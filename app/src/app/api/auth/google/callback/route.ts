@@ -65,7 +65,8 @@ export async function GET(request: Request) {
   // Supabase'e kaydet
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || (state && user.id !== state)) {
+  // Require state to prevent CSRF — a missing or mismatched state is always rejected
+  if (!user || !state || user.id !== state) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=auth_mismatch`)
   }
 

@@ -59,11 +59,15 @@ export async function PUT(request: Request) {
     if (key in body) updates[key] = body[key]
   }
 
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+  }
+
   const { data, error } = await supabase
     .from('firms')
     .update(updates)
     .eq('id', profile.firm_id)
-    .select()
+    .select('id, name, sector, gmb_location_id, approval_mode, response_length, system_prompt, info_card, is_active')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

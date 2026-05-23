@@ -79,7 +79,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const reviews = $input.item.json.reviews || [];\nconst firm = $('Her Firma İçin').item.json;\nconst accessToken = $('Access Token Yenile').item.json.access_token;\n\n// Yalnızca yanıtsız yorumları filtrele\nconst unanswered = reviews.filter(r => !r.reviewReply);\n\nreturn unanswered.map(r => ({\n  json: {\n    firm_id: firm.id,\n    firm_name: firm.name,\n    firm_sector: firm.sector,\n    system_prompt: firm.system_prompt || '',\n    approval_mode: firm.approval_mode,\n    response_length: firm.response_length || 'medium',\n    info_card: firm.info_card || {},\n    gmb_location_id: firm.gmb_location_id,\n    access_token: accessToken,\n    gmb_review_id: r.reviewId,\n    reviewer_name: r.reviewer?.displayName || 'Anonim',\n    reviewer_id: r.reviewer?.profilePhotoUrl || null,\n    rating: ({'ONE':1,'TWO':2,'THREE':3,'FOUR':4,'FIVE':5})[r.starRating] || 3,\n    review_text: r.comment || '',\n    review_date: r.createTime,\n  }\n}));"
+        "jsCode": "const reviews = $input.item.json.reviews || [];\nconst firm = $('Her Firma İçin').item.json;\nconst accessToken = $('Access Token Yenile').item.json.access_token;\n\n// Yalnızca yanıtsız yorumları filtrele\nconst unanswered = reviews.filter(r => !r.reviewReply);\n\nreturn unanswered.map(r => ({\n  json: {\n    firm_id: firm.id,\n    firm_name: firm.name,\n    firm_sector: firm.sector,\n    system_prompt: firm.system_prompt || '',\n    approval_mode: firm.approval_mode,\n    response_length: firm.response_length || 'medium',\n    info_card: firm.info_card || {},\n    gmb_location_id: firm.gmb_location_id,\n    access_token: accessToken,\n    gmb_review_id: r.reviewId,\n    reviewer_name: r.reviewer?.displayName || 'Anonim',\n    reviewer_id: r.reviewer?.isAnonymous ? null : (r.reviewer?.displayName || null),\n    rating: ({'ONE':1,'TWO':2,'THREE':3,'FOUR':4,'FIVE':5})[r.starRating] || 3,\n    review_text: r.comment || '',\n    review_date: r.createTime,\n  }\n}));"
       },
       "id": "filter-unanswered",
       "name": "Yanıtsızları Filtrele",
@@ -157,7 +157,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO review_analysis (review_id, firm_id, sentiment, topics, importance_score, keywords, has_critical_keyword, critical_keywords, created_at)\nVALUES (\n  '{{ $json.id }}',\n  '{{ $json.firm_id }}',\n  '{{ $json.analysis.sentiment.replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json.analysis.topics || []) }}'::jsonb,\n  {{ $json.analysis.importance_score || 3 }},\n  '{{ JSON.stringify($json.analysis.keywords || []) }}'::jsonb,\n  {{ $json.analysis.has_critical_keyword || false }},\n  '{{ JSON.stringify($json.analysis.critical_keywords || []) }}'::jsonb,\n  NOW()\n)"
+        "query": "INSERT INTO review_analysis (review_id, firm_id, sentiment, topics, importance_score, keywords, has_critical_keyword, critical_keywords, created_at)\nVALUES (\n  '{{ $json.id }}',\n  '{{ $json.firm_id }}',\n  '{{ $json.analysis.sentiment.replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json.analysis.topics || []).replace(/'/g, \"''\") }}'::jsonb,\n  {{ $json.analysis.importance_score || 3 }},\n  '{{ JSON.stringify($json.analysis.keywords || []).replace(/'/g, \"''\") }}'::jsonb,\n  {{ $json.analysis.has_critical_keyword || false }},\n  '{{ JSON.stringify($json.analysis.critical_keywords || []).replace(/'/g, \"''\") }}'::jsonb,\n  NOW()\n)"
       },
       "id": "save-analysis",
       "name": "Analizi Kaydet",
@@ -219,7 +219,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reviews SET\n  ai_response = '{{ $json.ai_response.replace(/'/g, \"''\") }}',\n  template_id = {{ $json.template_id ? `'${$json.template_id}'` : 'NULL' }},\n  tokens_input = {{ $json.tokens_input }},\n  tokens_output = {{ $json.tokens_output }},\n  cost_usd = {{ $json.cost_usd }},\n  status = '{{ $json.new_status }}',\n  {{ $json.auto_publish ? `final_response = '${$json.ai_response.replace(/'/g, \"''\"))', published_at = NOW(),` : '' }}\n  updated_at = NOW()\nWHERE id = '{{ $json.id }}'"
+        "query": "UPDATE reviews SET\n  ai_response = '{{ $json.ai_response.replace(/'/g, \"''\") }}',\n  template_id = {{ $json.template_id ? `'${$json.template_id}'` : 'NULL' }},\n  tokens_input = {{ $json.tokens_input }},\n  tokens_output = {{ $json.tokens_output }},\n  cost_usd = {{ $json.cost_usd }},\n  status = '{{ $json.new_status }}',\n  {{ $json.auto_publish ? `final_response = '${$json.ai_response.replace(/'/g, \"''\")}', published_at = NOW(),` : '' }}\n  updated_at = NOW()\nWHERE id = '{{ $json.id }}'"
       },
       "id": "update-review",
       "name": "Yorumu Güncelle",

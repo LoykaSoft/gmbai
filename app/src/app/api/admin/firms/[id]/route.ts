@@ -1,20 +1,39 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+async function requireAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }), supabase: null }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), supabase: null }
+  }
+
+  return { error: null, supabase }
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const { error, supabase } = await requireAdmin()
+  if (error) return error
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase!
     .from('firms')
-    .select('*')
+    .select('id, name, sector, approval_mode, response_length, is_active, created_at, gmb_location_id, system_prompt, info_card')
     .eq('id', id)
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 404 })
   return NextResponse.json(data)
 }
 
@@ -23,10 +42,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const { error, supabase } = await requireAdmin()
+  if (error) return error
+
   const body = await request.json()
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase!
     .from('firms')
     .update({
       name: body.name,
@@ -37,10 +58,10 @@ export async function PUT(
       system_prompt: body.system_prompt,
     })
     .eq('id', id)
-    .select()
+    .select('id, name, sector, approval_mode, response_length, is_active, system_prompt')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
   return NextResponse.json(data)
 }
 
@@ -49,10 +70,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const { error, supabase } = await requireAdmin()
+  if (error) return error
 
-  const { error } = await supabase.from('firms').delete().eq('id', id)
+  const { error: dbError } = await supabase!.from('firms').delete().eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

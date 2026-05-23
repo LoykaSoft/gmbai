@@ -90,7 +90,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id }}', '{{ $json.reviewer_name }}', {{ $json.reviewer_id ? `'${$json.reviewer_id}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', '{{ $json.review_date }}', 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
+        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id }}', '{{ $json.reviewer_name.replace(/'/g, \"''\") }}', {{ $json.reviewer_id ? `'${$json.reviewer_id.replace(/'/g, \"''\")}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', '{{ $json.review_date }}', 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
       },
       "id": "save-review",
       "name": "Yorumu Kaydet (Tekrar Önle)",

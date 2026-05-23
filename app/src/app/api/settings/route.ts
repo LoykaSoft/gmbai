@@ -15,19 +15,25 @@ export async function GET() {
 
   if (!profile?.firm_id) return NextResponse.json({ error: 'No firm' }, { status: 404 })
 
+  // gmb_access_token ve gmb_refresh_token select'e dahil edilmez — istemciye asla gönderilmez
   const { data: firm, error } = await supabase
     .from('firms')
-    .select('id, name, sector, gmb_location_id, gmb_access_token, approval_mode, response_length, system_prompt, info_card, is_active')
+    .select('id, name, sector, gmb_location_id, approval_mode, response_length, system_prompt, info_card, is_active')
     .eq('id', profile.firm_id)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Token varlığını bool olarak döndür, token değerini açıkta bırakma
+  // GMB bağlantı durumunu ayrı sorgula (sadece boolean)
+  const { data: tokenCheck } = await supabase
+    .from('firms')
+    .select('gmb_access_token')
+    .eq('id', profile.firm_id)
+    .single()
+
   return NextResponse.json({
     ...firm,
-    gmb_connected: !!firm.gmb_access_token,
-    gmb_access_token: undefined,
+    gmb_connected: !!tokenCheck?.gmb_access_token,
   })
 }
 

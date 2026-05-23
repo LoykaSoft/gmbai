@@ -42,7 +42,7 @@ export async function GET() {
   const published = reviews?.filter(r => ['published', 'auto_published'].includes(r.status)).length ?? 0
   const pending = reviews?.filter(r => r.status === 'pending').length ?? 0
   const avgRating = total > 0
-    ? reviews!.reduce((s, r) => s + r.rating, 0) / total
+    ? (reviews ?? []).reduce((s, r) => s + r.rating, 0) / total
     : 0
 
   const starDist = [1, 2, 3, 4, 5].map(star => ({

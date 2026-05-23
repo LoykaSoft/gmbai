@@ -32,14 +32,21 @@ export async function GET(request: Request) {
 
   const buckets = new Map<string, { total: number; count: number; published: number }>()
 
+  function getISOWeek(d: Date): { year: number; week: number } {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    const day = date.getUTCDay() || 7 // Mon=1, Sun=7
+    date.setUTCDate(date.getUTCDate() + 4 - day) // shift to nearest Thursday
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+    const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+    return { year: date.getUTCFullYear(), week }
+  }
+
   for (const r of reviews) {
     const d = new Date(r.review_date)
     let key: string
     if (period === 'weekly') {
-      // ISO haftası: YYYY-WNN
-      const startOfYear = new Date(d.getFullYear(), 0, 1)
-      const week = Math.ceil(((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
-      key = `${d.getFullYear()}-H${String(week).padStart(2, '0')}`
+      const { year, week } = getISOWeek(d)
+      key = `${year}-H${String(week).padStart(2, '0')}`
     } else {
       key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     }

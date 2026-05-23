@@ -22,9 +22,16 @@ export async function POST(
 
   const { review_text, rating } = await request.json()
   if (!review_text) return NextResponse.json({ error: 'review_text required' }, { status: 400 })
+  const ratingNum = Number(rating)
+  if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+    return NextResponse.json({ error: 'rating must be integer 1-5' }, { status: 400 })
+  }
 
   const [{ data: template }, { data: firm }] = await Promise.all([
-    supabase.from('templates').select('*').eq('id', id).single(),
+    // firm_id IS NULL (sistem şablonu) VEYA kullanıcının kendi firmasına ait olmalı
+    supabase.from('templates').select('*').eq('id', id)
+      .or(`firm_id.is.null,firm_id.eq.${profile.firm_id}`)
+      .single(),
     supabase.from('firms').select('name, sector, system_prompt, info_card, response_length').eq('id', profile.firm_id).single(),
   ])
 
@@ -71,7 +78,7 @@ Yukarıdaki yoruma ${lengthMap[firm.response_length] ?? '3-4 cümle'} uzunluğun
     max_tokens: 500,
   })
 
-  const response = completion.choices[0].message.content
+  const response = completion.choices[0].message.content ?? ''
   const tokensInput = completion.usage?.prompt_tokens ?? 0
   const tokensOutput = completion.usage?.completion_tokens ?? 0
   const costUsd = (tokensInput * 0.0000025) + (tokensOutput * 0.00001)

@@ -138,6 +138,11 @@ export default function TemplatesClient({ initialTemplates }: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ review_text: test.reviewText, rating: test.rating }),
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setTest(prev => prev ? { ...prev, loading: false, response: body.error ?? 'Test başarısız oldu.' } : null)
+      return
+    }
     const data = await res.json()
     setTest(prev => prev ? { ...prev, loading: false, response: data.response ?? data.error } : null)
   }

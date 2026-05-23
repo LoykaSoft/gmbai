@@ -111,7 +111,11 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
   async function handleDisconnect() {
     setDisconnecting(true)
     try {
-      await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
+      const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
+      if (!res.ok) {
+        setSaveError('Bağlantı kesilemedi, lütfen tekrar deneyin.')
+        return
+      }
       router.refresh()
     } finally {
       setDisconnecting(false)

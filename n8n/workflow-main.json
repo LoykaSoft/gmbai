@@ -90,7 +90,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id }}', '{{ $json.reviewer_name.replace(/'/g, \"''\") }}', {{ $json.reviewer_id ? `'${$json.reviewer_id.replace(/'/g, \"''\")}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', '{{ $json.review_date }}', 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
+        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id.replace(/'/g, \"''\") }}', '{{ $json.reviewer_name.replace(/'/g, \"''\") }}', {{ $json.reviewer_id ? `'${$json.reviewer_id.replace(/'/g, \"''\")}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', '{{ $json.review_date.replace(/'/g, \"''\") }}', 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
       },
       "id": "save-review",
       "name": "Yorumu Kaydet (Tekrar Önle)",
@@ -157,7 +157,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO review_analysis (review_id, firm_id, sentiment, topics, importance_score, keywords, has_critical_keyword, critical_keywords, created_at)\nVALUES (\n  '{{ $json.id }}',\n  '{{ $json.firm_id }}',\n  '{{ $json.analysis.sentiment }}',\n  '{{ JSON.stringify($json.analysis.topics || []) }}'::jsonb,\n  {{ $json.analysis.importance_score || 3 }},\n  '{{ JSON.stringify($json.analysis.keywords || []) }}'::jsonb,\n  {{ $json.analysis.has_critical_keyword || false }},\n  '{{ JSON.stringify($json.analysis.critical_keywords || []) }}'::jsonb,\n  NOW()\n)"
+        "query": "INSERT INTO review_analysis (review_id, firm_id, sentiment, topics, importance_score, keywords, has_critical_keyword, critical_keywords, created_at)\nVALUES (\n  '{{ $json.id }}',\n  '{{ $json.firm_id }}',\n  '{{ $json.analysis.sentiment.replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json.analysis.topics || []) }}'::jsonb,\n  {{ $json.analysis.importance_score || 3 }},\n  '{{ JSON.stringify($json.analysis.keywords || []) }}'::jsonb,\n  {{ $json.analysis.has_critical_keyword || false }},\n  '{{ JSON.stringify($json.analysis.critical_keywords || []) }}'::jsonb,\n  NOW()\n)"
       },
       "id": "save-analysis",
       "name": "Analizi Kaydet",

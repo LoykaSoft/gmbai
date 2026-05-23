@@ -29,7 +29,7 @@ export async function PUT(
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 404 })
 
   const finalResponse = review.edited_response ?? review.ai_response
-  if (!finalResponse) {
+  if (finalResponse == null) {
     return NextResponse.json({ error: 'No AI response to publish yet' }, { status: 400 })
   }
 

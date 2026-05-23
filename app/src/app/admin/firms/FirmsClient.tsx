@@ -124,13 +124,15 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
   async function toggleApproval(firm: Firm) {
     const next = !firm.approval_mode
     setFirms(prev => prev.map(f => f.id === firm.id ? { ...f, approval_mode: next } : f))
-    const res = await fetch(`/api/admin/firms/${firm.id}/approval-mode`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approval_mode: next }),
-    })
-    if (!res.ok) {
-      // rollback
+    try {
+      const res = await fetch(`/api/admin/firms/${firm.id}/approval-mode`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_mode: next }),
+      })
+      if (!res.ok) throw new Error('failed')
+    } catch {
+      // rollback on both network errors and non-ok responses
       setFirms(prev => prev.map(f => f.id === firm.id ? { ...f, approval_mode: firm.approval_mode } : f))
     }
   }

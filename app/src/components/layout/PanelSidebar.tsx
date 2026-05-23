@@ -78,13 +78,13 @@ export default function PanelSidebar() {
   }
 
   async function markRead(id: string) {
-    await fetch(`/api/notifications/${id}/read`, { method: 'PUT' })
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+    const res = await fetch(`/api/notifications/${id}/read`, { method: 'PUT' })
+    if (res.ok) setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
   }
 
   async function markAllRead() {
-    await fetch('/api/notifications/read-all', { method: 'PUT' })
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    const res = await fetch('/api/notifications/read-all', { method: 'PUT' })
+    if (res.ok) setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
   }
 
   async function handleLogout() {

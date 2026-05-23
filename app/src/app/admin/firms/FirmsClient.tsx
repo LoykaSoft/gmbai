@@ -88,14 +88,16 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
+        if (!res.ok) return
         const updated: Firm = await res.json()
-        setFirms(prev => prev.map(f => (f.id === updated.id ? updated : f)))
+        setFirms(prev => prev.map(f => (f.id === updated.id ? { ...f, ...updated } : f)))
       } else {
         const res = await fetch('/api/admin/firms', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
+        if (!res.ok) return
         const created: Firm = await res.json()
         setFirms(prev => [created, ...prev])
       }
@@ -109,7 +111,8 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
   async function handleDelete(id: string) {
     setLoading(true)
     try {
-      await fetch(`/api/admin/firms/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/firms/${id}`, { method: 'DELETE' })
+      if (!res.ok) return
       setFirms(prev => prev.filter(f => f.id !== id))
       setDeleteConfirm(null)
       router.refresh()
@@ -119,13 +122,17 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
   }
 
   async function toggleApproval(firm: Firm) {
+    const next = !firm.approval_mode
+    setFirms(prev => prev.map(f => f.id === firm.id ? { ...f, approval_mode: next } : f))
     const res = await fetch(`/api/admin/firms/${firm.id}/approval-mode`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approval_mode: !firm.approval_mode }),
+      body: JSON.stringify({ approval_mode: next }),
     })
-    const updated: Firm = await res.json()
-    setFirms(prev => prev.map(f => (f.id === updated.id ? updated : f)))
+    if (!res.ok) {
+      // rollback
+      setFirms(prev => prev.map(f => f.id === firm.id ? { ...f, approval_mode: firm.approval_mode } : f))
+    }
   }
 
   return (

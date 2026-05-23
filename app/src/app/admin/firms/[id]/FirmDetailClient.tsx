@@ -54,7 +54,7 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
   async function handleSave() {
     setSaving(true)
     try {
-      await fetch(`/api/admin/firms/${firm.id}`, {
+      const res = await fetch(`/api/admin/firms/${firm.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,6 +66,7 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
           is_active: isActive,
         }),
       })
+      if (!res.ok) return
       router.refresh()
     } finally {
       setSaving(false)

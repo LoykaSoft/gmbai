@@ -83,6 +83,7 @@ export default function ReviewsClient({ initialReviews }: Props) {
     setLoading(id)
     try {
       const res = await fetch(`/api/reviews/${id}/approve`, { method: 'PUT' })
+      if (!res.ok) return
       const updated: Review = await res.json()
       setReviews(prev => prev.map(r => r.id === id ? updated : r))
       router.refresh()
@@ -95,6 +96,7 @@ export default function ReviewsClient({ initialReviews }: Props) {
     setLoading(id)
     try {
       const res = await fetch(`/api/reviews/${id}/reject`, { method: 'PUT' })
+      if (!res.ok) return
       const updated: Review = await res.json()
       setReviews(prev => prev.map(r => r.id === id ? updated : r))
       router.refresh()
@@ -112,6 +114,7 @@ export default function ReviewsClient({ initialReviews }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response: editText }),
       })
+      if (!res.ok) return
       const updated: Review = await res.json()
       setReviews(prev => prev.map(r => r.id === editDialog.id ? updated : r))
       setEditDialog(null)

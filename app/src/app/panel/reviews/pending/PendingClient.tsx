@@ -32,7 +32,8 @@ export default function PendingClient({ initialReviews }: { initialReviews: Revi
   async function handleApprove(id: string) {
     setLoading(id)
     try {
-      await fetch(`/api/reviews/${id}/approve`, { method: 'PUT' })
+      const res = await fetch(`/api/reviews/${id}/approve`, { method: 'PUT' })
+      if (!res.ok) return
       setReviews(prev => prev.filter(r => r.id !== id))
       router.refresh()
     } finally {
@@ -43,7 +44,8 @@ export default function PendingClient({ initialReviews }: { initialReviews: Revi
   async function handleReject(id: string) {
     setLoading(id)
     try {
-      await fetch(`/api/reviews/${id}/reject`, { method: 'PUT' })
+      const res = await fetch(`/api/reviews/${id}/reject`, { method: 'PUT' })
+      if (!res.ok) return
       setReviews(prev => prev.filter(r => r.id !== id))
       router.refresh()
     } finally {
@@ -56,11 +58,12 @@ export default function PendingClient({ initialReviews }: { initialReviews: Revi
     if (!text?.trim()) return
     setLoading(review.id)
     try {
-      await fetch(`/api/reviews/${review.id}/edit`, {
+      const res = await fetch(`/api/reviews/${review.id}/edit`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response: text }),
       })
+      if (!res.ok) return
       setReviews(prev => prev.filter(r => r.id !== review.id))
       setEditingId(null)
       router.refresh()

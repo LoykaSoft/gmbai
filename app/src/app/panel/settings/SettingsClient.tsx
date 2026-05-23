@@ -54,17 +54,24 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
 
   const [saving, setSaving] = useState(false)
   const [savedSection, setSavedSection] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
   const [blacklistLoading, setBlacklistLoading] = useState(false)
 
   async function saveSettings(section: string, payload: Record<string, unknown>) {
     setSaving(true)
+    setSaveError(null)
     try {
-      await fetch('/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setSaveError(body.error ?? 'Kaydetme başarısız oldu.')
+        return
+      }
       setSavedSection(section)
       setTimeout(() => setSavedSection(null), 2500)
       router.refresh()
@@ -84,15 +91,36 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
   }
 
   async function handleToggleApproval() {
+    const original = approvalMode
     const next = !approvalMode
     setApprovalMode(next)
-    await saveSettings('approval', { approval_mode: next })
+    setSaving(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_mode: next }),
+      })
+      if (!res.ok) {
+        setApprovalMode(original) // rollback
+        setSaveError('Onay modu değiştirilemedi.')
+      } else {
+        setSavedSection('approval')
+        setTimeout(() => setSavedSection(null), 2500)
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDisconnect() {
     setDisconnecting(true)
     try {
-      await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
+      const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
+      if (!res.ok) {
+        setSaveError('Bağlantı kesilemedi, lütfen tekrar deneyin.')
+        return
+      }
       router.refresh()
     } finally {
       setDisconnecting(false)
@@ -109,6 +137,7 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ word: w }),
       })
+      if (!res.ok) return
       const created: BlacklistWord = await res.json()
       setBlacklist(prev => [created, ...prev])
       setNewWord('')
@@ -118,7 +147,8 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
   }
 
   async function handleRemoveWord(id: string) {
-    await fetch(`/api/settings/blacklist/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/settings/blacklist/${id}`, { method: 'DELETE' })
+    if (!res.ok) return
     setBlacklist(prev => prev.filter(x => x.id !== id))
   }
 
@@ -141,7 +171,15 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
       {errorMsg && (
         <div className="mb-6 flex items-center gap-2 bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm">
           <AlertCircle className="w-4 h-4 shrink-0" />
-          {errorMsg === 'google_oauth_denied' ? 'Google izni reddedildi.' : 'Bir hata oluştu: ' + errorMsg}
+          {errorMsg === 'google_oauth_denied' ? 'Google izni reddedildi.' :
+           errorMsg === 'token_save_failed' ? 'Token kaydedilemedi, lütfen tekrar deneyin.' :
+           'Bir hata oluştu: ' + errorMsg}
+        </div>
+      )}
+      {saveError && (
+        <div className="mb-6 flex items-center gap-2 bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {saveError}
         </div>
       )}
 

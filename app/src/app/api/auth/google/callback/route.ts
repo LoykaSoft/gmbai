@@ -40,6 +40,10 @@ export async function GET(request: Request) {
   const tokens = await tokenRes.json()
   const { access_token, refresh_token } = tokens
 
+  if (!access_token || !refresh_token) {
+    return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_exchange_failed`)
+  }
+
   // GMB Account'u al (lokasyon ID)
   let locationId: string | null = null
   try {
@@ -61,7 +65,8 @@ export async function GET(request: Request) {
   // Supabase'e kaydet
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || (state && user.id !== state)) {
+  // Require state to prevent CSRF — a missing or mismatched state is always rejected
+  if (!user || !state || user.id !== state) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=auth_mismatch`)
   }
 
@@ -75,7 +80,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=no_firm`)
   }
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('firms')
     .update({
       gmb_access_token: access_token,
@@ -83,6 +88,10 @@ export async function GET(request: Request) {
       ...(locationId ? { gmb_location_id: locationId } : {}),
     })
     .eq('id', profile.firm_id)
+
+  if (updateError) {
+    return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_save_failed`)
+  }
 
   return NextResponse.redirect(`${baseUrl}/panel/settings?success=google_connected`)
 }

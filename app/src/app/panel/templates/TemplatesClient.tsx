@@ -95,6 +95,7 @@ export default function TemplatesClient({ initialTemplates }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
+        if (!res.ok) return
         const created: Template = await res.json()
         setTemplates(prev => [created, ...prev])
       } else if (dialog === 'edit' && editTarget) {
@@ -103,6 +104,7 @@ export default function TemplatesClient({ initialTemplates }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
+        if (!res.ok) return
         const updated: Template = await res.json()
         setTemplates(prev => prev.map(t => t.id === editTarget.id ? updated : t))
       }
@@ -113,7 +115,8 @@ export default function TemplatesClient({ initialTemplates }: Props) {
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/templates/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' })
+    if (!res.ok) return
     setTemplates(prev => prev.filter(t => t.id !== id))
   }
 
@@ -135,6 +138,11 @@ export default function TemplatesClient({ initialTemplates }: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ review_text: test.reviewText, rating: test.rating }),
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setTest(prev => prev ? { ...prev, loading: false, response: body.error ?? 'Test başarısız oldu.' } : null)
+      return
+    }
     const data = await res.json()
     setTest(prev => prev ? { ...prev, loading: false, response: data.response ?? data.error } : null)
   }

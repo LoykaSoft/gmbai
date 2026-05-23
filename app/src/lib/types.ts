@@ -4,6 +4,14 @@ export type Sentiment = 'positive' | 'negative' | 'neutral'
 export type ResponseLength = 'short' | 'medium' | 'long'
 export type Sector = 'restoran' | 'kafe' | 'bar' | 'diger'
 
+export interface InfoCard {
+  address?: string
+  hours?: string
+  highlights?: string
+  faq?: string
+  forbidden_info?: string
+}
+
 export interface Firm {
   id: string
   name: string
@@ -15,6 +23,7 @@ export interface Firm {
   approval_mode: boolean
   response_length: ResponseLength
   is_active: boolean
+  info_card: InfoCard | null
   created_at: string
 }
 

@@ -1,5 +1,5 @@
--- GMB AI — Veritabanı Şeması
--- Supabase SQL Editor'da çalıştır
+-- GMB AI — Tam Veritabanı Şeması (Tek Seferde Kur)
+-- Supabase SQL Editor'da tamamını seç ve çalıştır.
 
 -- UUID extension
 create extension if not exists "uuid-ossp";
@@ -20,6 +20,7 @@ create table if not exists public.firms (
   approval_mode boolean not null default true,
   response_length text not null default 'medium' check (response_length in ('short', 'medium', 'long')),
   is_active boolean not null default true,
+  info_card jsonb default '{}',
   created_at timestamptz not null default now()
 );
 
@@ -107,6 +108,18 @@ create table if not exists public.blacklist_words (
   unique(firm_id, word)
 );
 
+-- notifications — Bildirimler
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  firm_id uuid references public.firms(id) on delete cascade,
+  review_id uuid references public.reviews(id) on delete cascade,
+  type text not null,
+  message text not null,
+  is_read boolean default false,
+  created_at timestamptz default now(),
+  unique(review_id, type)
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
@@ -118,6 +131,7 @@ alter table public.review_analysis enable row level security;
 alter table public.templates enable row level security;
 alter table public.usage_logs enable row level security;
 alter table public.blacklist_words enable row level security;
+alter table public.notifications enable row level security;
 
 -- Helper function: kullanıcının rolünü döner
 create or replace function public.get_user_role()
@@ -200,6 +214,10 @@ create policy "Admin tüm kara listeyi görür" on public.blacklist_words
 create policy "Firma kullanıcısı kendi kara listesini yönetir" on public.blacklist_words
   for all using (firm_id = get_user_firm_id());
 
+-- notifications RLS
+create policy "Firma kendi bildirimlerini görür" on public.notifications
+  for all using (firm_id = get_user_firm_id());
+
 -- ============================================================
 -- TRIGGER: Yeni kullanıcı kaydında otomatik profil oluştur
 -- ============================================================
@@ -232,7 +250,8 @@ insert into public.templates (sector, name, rating_range, topic, opening, body, 
 ('kafe', 'Kafe 5 Yıldız Genel', '5', 'genel', 'Teşekkürler! Güzel yorumunuz bizi çok mutlu etti.', 'Kahvemizi ve atmosferimizi beğenmeniz ekibimizi çok motive etti. Her fincanı özenle hazırlıyor, her anınızın keyifli geçmesini istiyoruz.', 'Yakında görüşmek üzere, hoş günler!', true),
 ('kafe', 'Kafe Gürültü Şikayeti', '1-2', 'atmosfer', 'Sayın misafirimiz, rahatsız edici bir deneyim yaşadığınız için özür dileriz.', 'Sakin bir köşemizde sizi ağırlamaktan memnuniyet duyarız. Bir sonraki ziyaretinizde daha sessiz bölgemizi tercih edebilirsiniz.', 'Bizi tekrar denemenizi umuyoruz, sizi daha iyi ağırlamak için elimizden geleni yapacağız.', true),
 ('bar', 'Bar 5 Yıldız Genel', '5', 'genel', 'Harika! Bu güzel yorumunuz için teşekkür ederiz!', 'Sizinle birlikte o enerjiyi yaşamak bizim için de çok değerliydi. Ekibimiz her gece unutulmaz anlar yaratmak için burada.', 'Yakında tekrar görüşmek üzere, iyi eğlenceler!', true),
-('bar', 'Bar Fiyat Şikayeti', '1-2', 'fiyat', 'Değerli misafirimiz, görüşünüzü bizimle paylaştığınız için teşekkür ederiz.', 'Sunduğumuz ürün ve hizmet kalitesinin fiyatlarımıza yansıdığını düşünüyoruz. Malzeme seçiminden servis kalitesine her detaya özen gösteriyoruz.', 'Sizi tekrar aramızda görmek ve sunduğumuz deneyimi bizzat değerlendirmenizi isteriz.', true);
+('bar', 'Bar Fiyat Şikayeti', '1-2', 'fiyat', 'Değerli misafirimiz, görüşünüzü bizimle paylaştığınız için teşekkür ederiz.', 'Sunduğumuz ürün ve hizmet kalitesinin fiyatlarımıza yansıdığını düşünüyoruz. Malzeme seçiminden servis kalitesine her detaya özen gösteriyoruz.', 'Sizi tekrar aramızda görmek ve sunduğumuz deneyimi bizzat değerlendirmenizi isteriz.', true)
+on conflict do nothing;
 
 -- ============================================================
 -- INDEX'LER (Performans)
@@ -245,3 +264,4 @@ create index if not exists idx_review_analysis_review_id on public.review_analys
 create index if not exists idx_usage_logs_firm_id on public.usage_logs(firm_id);
 create index if not exists idx_usage_logs_created_at on public.usage_logs(created_at desc);
 create index if not exists idx_profiles_firm_id on public.profiles(firm_id);
+create index if not exists idx_notifications_firm_id on public.notifications(firm_id);

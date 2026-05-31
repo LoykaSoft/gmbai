@@ -34,9 +34,16 @@ export async function PUT(
     })
     .eq('id', id)
     .eq('firm_id', profile.firm_id)
+    .eq('status', 'pending')
     .select()
-    .single()
+    .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('reviews/edit update error:', error)
+    return NextResponse.json({ error: 'Yorum düzenlenemedi' }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Yorum düzenlenemez (zaten işlenmiş)' }, { status: 409 })
+  }
   return NextResponse.json(data)
 }

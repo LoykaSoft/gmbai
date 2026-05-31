@@ -24,9 +24,16 @@ export async function PUT(
     .update({ status: 'rejected' })
     .eq('id', id)
     .eq('firm_id', profile.firm_id)
+    .eq('status', 'pending')
     .select()
-    .single()
+    .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('reviews/reject update error:', error)
+    return NextResponse.json({ error: 'Yorum reddedilemedi' }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Yorum reddedilemez (zaten işlenmiş)' }, { status: 409 })
+  }
   return NextResponse.json(data)
 }

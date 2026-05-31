@@ -26,7 +26,7 @@ export async function PUT(
     .eq('firm_id', profile.firm_id)
     .single()
 
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 404 })
+  if (fetchError || !review) return NextResponse.json({ error: 'Yorum bulunamadı' }, { status: 404 })
 
   const finalResponse = review.edited_response ?? review.ai_response
   if (finalResponse == null) {
@@ -42,9 +42,16 @@ export async function PUT(
     })
     .eq('id', id)
     .eq('firm_id', profile.firm_id)
+    .eq('status', 'pending')
     .select()
-    .single()
+    .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('reviews/approve update error:', error)
+    return NextResponse.json({ error: 'Yorum onaylanamadı' }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Yorum onaylanamaz (zaten işlenmiş)' }, { status: 409 })
+  }
   return NextResponse.json(data)
 }

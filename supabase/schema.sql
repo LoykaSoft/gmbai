@@ -86,6 +86,18 @@ create table if not exists public.templates (
   created_at timestamptz not null default now()
 );
 
+-- reviews.template_id → templates(id) foreign key (templates reviews'tan sonra oluşturulduğu için burada eklenir)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'reviews_template_id_fkey'
+  ) then
+    alter table public.reviews
+      add constraint reviews_template_id_fkey
+      foreign key (template_id) references public.templates(id) on delete set null;
+  end if;
+end $$;
+
 -- usage_logs — Token Kullanım Logları
 create table if not exists public.usage_logs (
   id uuid primary key default uuid_generate_v4(),
@@ -139,6 +151,7 @@ returns text
 language sql
 security definer
 stable
+set search_path = public
 as $$
   select role from public.profiles where id = auth.uid()
 $$;
@@ -149,6 +162,7 @@ returns uuid
 language sql
 security definer
 stable
+set search_path = public
 as $$
   select firm_id from public.profiles where id = auth.uid()
 $$;
@@ -159,6 +173,11 @@ create policy "Admin tüm firmaları görür" on public.firms
 
 create policy "Firma kullanıcısı kendi firmasını görür" on public.firms
   for select using (id = get_user_firm_id());
+
+-- Firma kullanıcısı yalnızca kendi firmasını günceller (kolon koruması trigger ile).
+-- Bu politika olmadan ayarlar kaydetme ve Google OAuth token yazma RLS tarafından engellenir.
+create policy "Firma kullanıcısı kendi firmasını günceller" on public.firms
+  for update using (id = get_user_firm_id()) with check (id = get_user_firm_id());
 
 -- profiles RLS
 create policy "Admin tüm profilleri görür" on public.profiles
@@ -192,7 +211,7 @@ create policy "Firma kullanıcısı sistem ve kendi şablonlarını görür" on 
   for select using (is_system = true or firm_id = get_user_firm_id());
 
 create policy "Firma kullanıcısı kendi şablonlarını yönetir" on public.templates
-  for insert with check (firm_id = get_user_firm_id());
+  for insert with check (firm_id = get_user_firm_id() and is_system = false);
 
 create policy "Firma kullanıcısı kendi şablonlarını günceller" on public.templates
   for update using (firm_id = get_user_firm_id() and is_system = false);
@@ -215,8 +234,62 @@ create policy "Firma kullanıcısı kendi kara listesini yönetir" on public.bla
   for all using (firm_id = get_user_firm_id());
 
 -- notifications RLS
+create policy "Admin tüm bildirimleri görür" on public.notifications
+  for all using (get_user_role() = 'admin');
+
 create policy "Firma kendi bildirimlerini görür" on public.notifications
-  for all using (firm_id = get_user_firm_id());
+  for all using (firm_id = get_user_firm_id()) with check (firm_id = get_user_firm_id());
+
+-- ============================================================
+-- KOLON KORUMA TRIGGER'LARI (Yetki Yükseltme Önleme)
+-- ============================================================
+-- RLS UPDATE politikaları satır sahipliğini doğrular ama kolon bazlı
+-- kısıtlama yapamaz. Bu trigger'lar firma kullanıcısının hassas kolonları
+-- değiştirmesini engeller. Admin ve servis rolü (n8n, auth.uid() null) muaf.
+
+-- profiles: firma kullanıcısı kendi role/firm_id'sini değiştiremez
+create or replace function public.protect_profile_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or public.get_user_role() = 'admin' then
+    return new;
+  end if;
+  new.role := old.role;
+  new.firm_id := old.firm_id;
+  return new;
+end;
+$$;
+
+create or replace trigger protect_profile_columns_trg
+  before update on public.profiles
+  for each row execute procedure public.protect_profile_columns();
+
+-- firms: firma kullanıcısı admin tarafından yönetilen kolonları değiştiremez
+create or replace function public.protect_firm_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or public.get_user_role() = 'admin' then
+    return new;
+  end if;
+  new.name := old.name;
+  new.sector := old.sector;
+  new.is_active := old.is_active;
+  new.created_at := old.created_at;
+  return new;
+end;
+$$;
+
+create or replace trigger protect_firm_columns_trg
+  before update on public.firms
+  for each row execute procedure public.protect_firm_columns();
 
 -- ============================================================
 -- TRIGGER: Yeni kullanıcı kaydında otomatik profil oluştur
@@ -260,8 +333,14 @@ on conflict do nothing;
 create index if not exists idx_reviews_firm_id on public.reviews(firm_id);
 create index if not exists idx_reviews_status on public.reviews(status);
 create index if not exists idx_reviews_created_at on public.reviews(created_at desc);
+create index if not exists idx_reviews_template_id on public.reviews(template_id);
 create index if not exists idx_review_analysis_review_id on public.review_analysis(review_id);
+create index if not exists idx_review_analysis_firm_id on public.review_analysis(firm_id);
+create index if not exists idx_templates_firm_id on public.templates(firm_id);
+create index if not exists idx_blacklist_words_firm_id on public.blacklist_words(firm_id);
 create index if not exists idx_usage_logs_firm_id on public.usage_logs(firm_id);
+create index if not exists idx_usage_logs_review_id on public.usage_logs(review_id);
 create index if not exists idx_usage_logs_created_at on public.usage_logs(created_at desc);
 create index if not exists idx_profiles_firm_id on public.profiles(firm_id);
 create index if not exists idx_notifications_firm_id on public.notifications(firm_id);
+create index if not exists idx_notifications_review_id on public.notifications(review_id);

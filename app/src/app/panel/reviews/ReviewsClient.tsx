@@ -182,7 +182,7 @@ export default function ReviewsClient({ initialReviews }: Props) {
           </div>
         )}
         {filtered.map(review => {
-          const s = STATUS_LABELS[review.status]
+          const s = STATUS_LABELS[review.status] ?? { label: review.status, color: 'bg-gray-100 text-gray-700' }
           const expanded = expandedId === review.id
           const isPending = review.status === 'pending'
           const isLoading = loading === review.id

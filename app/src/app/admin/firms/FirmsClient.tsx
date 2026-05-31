@@ -246,7 +246,7 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
               <Label>Sektör</Label>
               <Select
                 value={form.sector}
-                onValueChange={v => setForm(f => ({ ...f, sector: v }))}
+                onValueChange={v => v && setForm(f => ({ ...f, sector: v }))}
               >
                 <SelectTrigger>
                   <SelectValue />

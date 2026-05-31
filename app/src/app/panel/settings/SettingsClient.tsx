@@ -236,7 +236,7 @@ export default function SettingsClient({ firm, blacklist: initialBlacklist, succ
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-gray-500">
-              Bu bilgiler AI'ın yorumlara cevap üretirken kullanacağı bağlam bilgilerdir.
+              Bu bilgiler AI&apos;ın yorumlara cevap üretirken kullanacağı bağlam bilgilerdir.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">

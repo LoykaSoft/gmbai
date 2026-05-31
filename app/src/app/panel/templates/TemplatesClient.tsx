@@ -196,7 +196,7 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
           ))}
           {systemTemplates.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-8">
-              Sistem şablonları Supabase'den yüklenecek.
+              Sistem şablonları Supabase&apos;den yüklenecek.
             </p>
           )}
         </div>
@@ -291,7 +291,7 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
           {test && (
             <div className="space-y-4 mt-2">
               <p className="text-xs text-gray-500">
-                Gerçek bir yorum girin ve AI'ın bu şablonla nasıl cevap ürettiğini görün. Yayınlama yapılmaz.
+                Gerçek bir yorum girin ve AI&apos;ın bu şablonla nasıl cevap ürettiğini görün. Yayınlama yapılmaz.
               </p>
               <div className="space-y-1.5">
                 <Label>Yıldız Sayısı</Label>

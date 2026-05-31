@@ -139,7 +139,7 @@ export default function ReviewsClient({ reviews, firms }: Props) {
               </TableRow>
             )}
             {filtered.map(review => {
-              const s = STATUS_LABELS[review.status]
+              const s = STATUS_LABELS[review.status] ?? { label: review.status, color: 'bg-gray-100 text-gray-700' }
               return (
                 <TableRow key={review.id}>
                   <TableCell>

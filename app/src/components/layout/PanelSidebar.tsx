@@ -70,7 +70,7 @@ export default function PanelSidebar() {
       const res = await fetch('/api/notifications')
       if (res.ok) {
         const data = await res.json()
-        setNotifications(data)
+        setNotifications(Array.isArray(data) ? data : [])
       }
     } catch {
       // sessizce geç

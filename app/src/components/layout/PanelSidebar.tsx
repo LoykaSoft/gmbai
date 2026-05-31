@@ -49,10 +49,25 @@ export default function PanelSidebar() {
   const unread = notifications.filter(n => !n.is_read).length
 
   useEffect(() => {
+    let cancelled = false
+    async function fetchNotifications() {
+      try {
+        const res = await fetch('/api/notifications')
+        if (res.ok) {
+          const data = await res.json()
+          if (!cancelled) setNotifications(Array.isArray(data) ? data : [])
+        }
+      } catch {
+        // sessizce geç
+      }
+    }
     fetchNotifications()
     // Her 2 dakikada bir yenile
     const interval = setInterval(fetchNotifications, 120_000)
-    return () => clearInterval(interval)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [])
 
   useEffect(() => {
@@ -64,18 +79,6 @@ export default function PanelSidebar() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
-
-  async function fetchNotifications() {
-    try {
-      const res = await fetch('/api/notifications')
-      if (res.ok) {
-        const data = await res.json()
-        setNotifications(data)
-      }
-    } catch {
-      // sessizce geç
-    }
-  }
 
   async function markRead(id: string) {
     const res = await fetch(`/api/notifications/${id}/read`, { method: 'PUT' })

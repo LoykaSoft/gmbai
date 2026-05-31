@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Review, ReviewStatus } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -182,7 +181,7 @@ export default function ReviewsClient({ initialReviews }: Props) {
           </div>
         )}
         {filtered.map(review => {
-          const s = STATUS_LABELS[review.status]
+          const s = STATUS_LABELS[review.status] ?? { label: review.status, color: 'bg-gray-100 text-gray-700' }
           const expanded = expandedId === review.id
           const isPending = review.status === 'pending'
           const isLoading = loading === review.id

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import { Firm } from '@/lib/types'
+import { Firm, Review } from '@/lib/types'
 import ReviewsClient from './ReviewsClient'
+
+type ReviewWithFirm = Review & { firms: { name: string } }
 
 export default async function AdminReviewsPage() {
   const supabase = await createClient()
@@ -16,7 +18,7 @@ export default async function AdminReviewsPage() {
 
   return (
     <ReviewsClient
-      reviews={(reviews as any) ?? []}
+      reviews={(reviews as ReviewWithFirm[]) ?? []}
       firms={(firms as Firm[]) ?? []}
     />
   )

@@ -7,7 +7,6 @@ import { SECTORS } from '@/lib/sectors-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -129,7 +128,7 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
 
             <div className="space-y-1.5">
               <Label>Sektör</Label>
-              <Select value={sector} onValueChange={setSector}>
+              <Select value={sector} onValueChange={v => v && setSector(v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -274,7 +273,7 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
                 </TableRow>
               )}
               {reviews.slice(0, 20).map(review => {
-                const s = STATUS_LABELS[review.status]
+                const s = STATUS_LABELS[review.status] ?? { label: review.status, color: 'bg-gray-100 text-gray-700' }
                 return (
                   <TableRow key={review.id}>
                     <TableCell className="font-medium text-sm">{review.reviewer_name}</TableCell>

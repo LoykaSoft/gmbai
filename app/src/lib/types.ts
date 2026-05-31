@@ -2,7 +2,7 @@ export type UserRole = 'admin' | 'firm_user'
 export type ReviewStatus = 'pending' | 'published' | 'auto_published' | 'rejected'
 export type Sentiment = 'positive' | 'negative' | 'neutral'
 export type ResponseLength = 'short' | 'medium' | 'long'
-export type Sector = 'restoran' | 'kafe' | 'bar' | 'diger'
+export type Sector = string
 
 export interface InfoCard {
   address?: string

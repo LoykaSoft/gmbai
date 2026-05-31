@@ -4,99 +4,17 @@
 
 ---
 
-## 1. Supabase — SQL Migration'ları Çalıştır
+## 1. Supabase — Tek SQL ile Kur
 
-Supabase Dashboard → **SQL Editor** → her birini ayrı ayrı çalıştır.
+Supabase Dashboard → **SQL Editor** → `supabase/schema.sql` dosyasının tamamını yapıştır ve çalıştır.
 
-### Migration 1 — İşletme Bilgi Kartı
-```sql
-ALTER TABLE firms ADD COLUMN IF NOT EXISTS info_card JSONB DEFAULT '{}';
-```
-
-### Migration 2 — Bildirim Tablosu
-```sql
-CREATE TABLE IF NOT EXISTS notifications (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  firm_id UUID REFERENCES firms(id) ON DELETE CASCADE,
-  review_id UUID REFERENCES reviews(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  message TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(review_id, type)
-);
-
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Firma kendi bildirimlerini görür" ON notifications
-  FOR ALL USING (
-    firm_id = (SELECT firm_id FROM profiles WHERE id = auth.uid())
-  );
-```
-
-### Migration 3 — Sistem Şablonları (Hazır Şablonlar)
-```sql
-INSERT INTO templates (name, sector, rating_range, topic, opening, body, closing, is_system)
-VALUES
--- Restoran
-('Restoran 5★ Genel', 'restoran', '5', 'genel',
- 'Değerli misafirimiz, güzel yorumunuz için çok teşekkür ederiz!',
- 'Memnuniyetinizi öğrenmek bizi mutlu etti. Ekibimiz her zaman en iyi deneyimi sunmak için çalışıyor.',
- 'Sizi tekrar ağırlamaktan büyük mutluluk duyarız. Afiyet olsun!',
- true),
-
-('Restoran 1-2★ Yemek', 'restoran', '1-2', 'yemek',
- 'Değerli misafirimiz, yaşadığınız deneyim için özür dileriz.',
- 'Yorumunuzu şefimizle paylaşacağız. Kalite standartlarımızı gözden geçireceğiz.',
- 'Bizi tekrar deneme fırsatı verirseniz çok daha iyi bir deneyim sunacağımıza eminiz.',
- true),
-
-('Restoran 1-2★ Servis', 'restoran', '1-2', 'servis',
- 'Değerli misafirimiz, hizmet kalitenizden memnun olmadığınız için üzgünüz.',
- 'Geri bildiriminizi ekibimizle paylaşacağız ve gerekli iyileştirmeleri yapacağız.',
- 'Sizi daha iyi bir hizmetle karşılamak istiyoruz, tekrar bekliyoruz.',
- true),
-
-('Restoran 3-4★ Genel', 'restoran', '3-4', 'genel',
- 'Değerli misafirimiz, bizi tercih ettiğiniz için teşekkür ederiz.',
- 'Görüşleriniz bizim için çok değerli. Eksiklerimizi gidermek için çalışıyoruz.',
- 'Daha iyi bir deneyim sunmak için çaba göstermeye devam edeceğiz.',
- true),
-
--- Kafe
-('Kafe 5★ Genel', 'kafe', '5', 'genel',
- 'Teşekkürler! Güzel sözleriniz bizi çok mutlu etti.',
- 'Kahvemizi ve atmosferimizi beğenmeniz harika. Ekibimiz her detayı özenle hazırlıyor.',
- 'Sizi tekrar görmekten mutluluk duyarız, iyi günler!',
- true),
-
-('Kafe 1-2★ Gürültü', 'kafe', '1-2', 'atmosfer',
- 'Değerli misafirimiz, gürültü konusunda yaşadığınız rahatsızlık için özür dileriz.',
- 'Daha sakin bir deneyim için köşe masalarımızı veya sakin saatlerimizi (sabah 08:00-11:00) önerebiliriz.',
- 'Sizi daha huzurlu bir ortamda ağırlamak isteriz.',
- true),
-
-('Kafe 1-2★ Yavaş Servis', 'kafe', '1-2', 'hız',
- 'Değerli misafirimiz, beklemenize neden olduğumuz için özür dileriz.',
- 'Yoğun saatlerde hizmet hızımızı artırmak için çalışmalar yapıyoruz.',
- 'Bir sonraki ziyaretinizde çok daha hızlı hizmet alacağınıza eminiz.',
- true),
-
--- Bar
-('Bar 5★ Genel', 'bar', '5', 'genel',
- 'Harika! Bizimle güzel bir gece geçirdiğinize sevindik.',
- 'Enerjinizi ve pozitif geri bildiriminizi ekibimizle paylaşacağız. Her gece sizin için özel hazırlanıyor.',
- 'Sizi yeniden dans pistinde görmek isteriz!',
- true),
-
-('Bar 1-2★ Fiyat', 'bar', '1-2', 'fiyat',
- 'Değerli misafirimiz, yorumunuz için teşekkür ederiz.',
- 'Fiyatlarımız kaliteli malzeme ve atmosferimizi yansıtmaktadır. Özel indirimli günlerimiz ve happy hour saatlerimizden faydalanabilirsiniz.',
- 'Sizi farklı bir deneyimle karşılamaktan memnuniyet duyarız.',
- true)
-
-ON CONFLICT DO NOTHING;
-```
+Bu tek dosya her şeyi içeriyor:
+- Tüm tablolar (firms, profiles, reviews, templates, notifications vb.)
+- Row Level Security politikaları
+- Trigger (otomatik profil oluşturma)
+- Sistem şablonları (restoran, kafe, bar başlangıç şablonları)
+- Index'ler
+- 45 sektör desteği (CHECK constraint yok)
 
 ---
 
@@ -241,9 +159,7 @@ VALUES ('AUTH_KULLANICI_UUID', 'FIRMA_UUID', 'firm_user', 'İşletme Adı');
 
 ## Özet Kontrol Listesi
 
-- [ ] Migration 1: `info_card` kolonu
-- [ ] Migration 2: `notifications` tablosu
-- [ ] Migration 3: Sistem şablonları eklendi
+- [ ] Supabase SQL Editor'da `schema.sql` çalıştırıldı (tek adım, her şey dahil)
 - [ ] Google Cloud: Proje ve API'ler aktif
 - [ ] Google Cloud: OAuth credentials oluşturuldu
 - [ ] `.env.local` dosyası oluşturuldu

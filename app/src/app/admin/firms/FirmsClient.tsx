@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Firm, Sector, ResponseLength } from '@/lib/types'
+import { Firm, ResponseLength } from '@/lib/types'
+import { SECTORS, getSectorLabel } from '@/lib/sectors-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,16 +32,9 @@ import {
 } from '@/components/ui/table'
 import { Plus, Pencil, Trash2, ExternalLink, Wifi, WifiOff } from 'lucide-react'
 
-const SECTOR_LABELS: Record<Sector, string> = {
-  restoran: 'Restoran',
-  kafe: 'Kafe',
-  bar: 'Bar',
-  diger: 'Diğer',
-}
-
 interface FirmForm {
   name: string
-  sector: Sector
+  sector: string
   approval_mode: boolean
   response_length: ResponseLength
 }
@@ -174,7 +168,7 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
               <TableRow key={firm.id}>
                 <TableCell className="font-medium">{firm.name}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{SECTOR_LABELS[firm.sector]}</Badge>
+                  <Badge variant="outline">{getSectorLabel(firm.sector)}</Badge>
                 </TableCell>
                 <TableCell>
                   {firm.gmb_access_token ? (
@@ -252,16 +246,15 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
               <Label>Sektör</Label>
               <Select
                 value={form.sector}
-                onValueChange={v => setForm(f => ({ ...f, sector: v as Sector }))}
+                onValueChange={v => setForm(f => ({ ...f, sector: v }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="restoran">Restoran</SelectItem>
-                  <SelectItem value="kafe">Kafe</SelectItem>
-                  <SelectItem value="bar">Bar</SelectItem>
-                  <SelectItem value="diger">Diğer</SelectItem>
+                  {SECTORS.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

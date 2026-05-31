@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Firm, Review, ReviewStatus, Sector, ResponseLength } from '@/lib/types'
+import { Firm, Review, ReviewStatus, ResponseLength } from '@/lib/types'
+import { SECTORS } from '@/lib/sectors-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,7 +46,7 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState(firm.name)
-  const [sector, setSector] = useState<Sector>(firm.sector)
+  const [sector, setSector] = useState(firm.sector)
   const [approvalMode, setApprovalMode] = useState(firm.approval_mode)
   const [responseLength, setResponseLength] = useState<ResponseLength>(firm.response_length)
   const [systemPrompt, setSystemPrompt] = useState(firm.system_prompt ?? '')
@@ -128,15 +129,14 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
 
             <div className="space-y-1.5">
               <Label>Sektör</Label>
-              <Select value={sector} onValueChange={v => setSector(v as Sector)}>
+              <Select value={sector} onValueChange={setSector}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="restoran">Restoran</SelectItem>
-                  <SelectItem value="kafe">Kafe</SelectItem>
-                  <SelectItem value="bar">Bar</SelectItem>
-                  <SelectItem value="diger">Diğer</SelectItem>
+                  {SECTORS.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Template } from '@/lib/types'
+import { getSectorTopics, getTopicLabel } from '@/lib/sectors-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,9 +30,6 @@ const RATING_LABELS: Record<string, string> = {
   '5': '5 Yıldız',
 }
 
-const TOPIC_OPTIONS = [
-  'genel', 'yemek', 'servis', 'fiyat', 'temizlik', 'atmosfer', 'hız',
-]
 
 type RatingRange = '1-2' | '3-4' | '5'
 
@@ -54,9 +52,11 @@ const EMPTY_FORM = {
 
 interface Props {
   initialTemplates: Template[]
+  firmSector: string
 }
 
-export default function TemplatesClient({ initialTemplates }: Props) {
+export default function TemplatesClient({ initialTemplates, firmSector }: Props) {
+  const topicOptions = getSectorTopics(firmSector)
   const [templates, setTemplates] = useState<Template[]>(initialTemplates)
   const [dialog, setDialog] = useState<'create' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<Template | null>(null)
@@ -240,8 +240,8 @@ export default function TemplatesClient({ initialTemplates }: Props) {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {TOPIC_OPTIONS.map(t => (
-                      <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                    {topicOptions.map(t => (
+                      <SelectItem key={t} value={t}>{getTopicLabel(t)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

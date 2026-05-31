@@ -12,7 +12,7 @@ create extension if not exists "uuid-ossp";
 create table if not exists public.firms (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
-  sector text not null default 'diger' check (sector in ('restoran', 'kafe', 'bar', 'diger')),
+  sector text not null default 'diger',
   gmb_location_id text,
   gmb_access_token text,
   gmb_refresh_token text,
@@ -74,7 +74,7 @@ create table if not exists public.review_analysis (
 create table if not exists public.templates (
   id uuid primary key default uuid_generate_v4(),
   firm_id uuid references public.firms(id) on delete cascade,
-  sector text check (sector in ('restoran', 'kafe', 'bar', 'diger')),
+  sector text,
   name text not null,
   rating_range text not null check (rating_range in ('1-2', '3-4', '5')),
   topic text not null default 'genel',

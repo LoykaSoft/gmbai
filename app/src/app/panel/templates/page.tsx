@@ -17,12 +17,24 @@ export default async function TemplatesPage() {
 
   if (!profile?.firm_id) redirect('/login')
 
-  const { data: templates } = await supabase
-    .from('templates')
-    .select('*')
-    .or(`firm_id.is.null,firm_id.eq.${profile.firm_id}`)
-    .order('is_system', { ascending: false })
-    .order('created_at', { ascending: false })
+  const [{ data: templates }, { data: firm }] = await Promise.all([
+    supabase
+      .from('templates')
+      .select('*')
+      .or(`firm_id.is.null,firm_id.eq.${profile.firm_id}`)
+      .order('is_system', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('firms')
+      .select('sector')
+      .eq('id', profile.firm_id)
+      .single(),
+  ])
 
-  return <TemplatesClient initialTemplates={(templates ?? []) as Template[]} />
+  return (
+    <TemplatesClient
+      initialTemplates={(templates ?? []) as Template[]}
+      firmSector={firm?.sector ?? 'diger'}
+    />
+  )
 }

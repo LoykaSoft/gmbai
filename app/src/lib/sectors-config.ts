@@ -111,6 +111,126 @@ export const SECTORS: SectorConfig[] = [
     topics: ['genel', 'hizmet', 'güven', 'iletişim', 'portföy', 'fiyat'],
   },
   {
+    id: 'firın',
+    label: 'Fırın / Pastane',
+    topics: ['genel', 'lezzet', 'tazelik', 'çeşitlilik', 'fiyat', 'servis', 'temizlik'],
+  },
+  {
+    id: 'kasap',
+    label: 'Kasap',
+    topics: ['genel', 'kalite', 'tazelik', 'çeşitlilik', 'fiyat', 'temizlik', 'personel'],
+  },
+  {
+    id: 'manav',
+    label: 'Manav',
+    topics: ['genel', 'tazelik', 'çeşitlilik', 'fiyat', 'temizlik', 'personel'],
+  },
+  {
+    id: 'veteriner',
+    label: 'Veteriner',
+    topics: ['genel', 'doktor', 'personel', 'temizlik', 'randevu', 'fiyat', 'iletişim'],
+  },
+  {
+    id: 'optik',
+    label: 'Optik',
+    topics: ['genel', 'ürün kalitesi', 'çeşitlilik', 'fiyat', 'personel', 'hız'],
+  },
+  {
+    id: 'oto_yikama',
+    label: 'Oto Yıkama',
+    topics: ['genel', 'temizlik', 'hız', 'fiyat', 'özen', 'iletişim'],
+  },
+  {
+    id: 'lastikci',
+    label: 'Lastikçi',
+    topics: ['genel', 'işçilik', 'hız', 'fiyat', 'güven', 'malzeme'],
+  },
+  {
+    id: 'boyaci',
+    label: 'Boyacı',
+    topics: ['genel', 'işçilik', 'temizlik', 'fiyat', 'malzeme', 'hız'],
+  },
+  {
+    id: 'nakliyat',
+    label: 'Nakliyat',
+    topics: ['genel', 'hız', 'özen', 'fiyat', 'güven', 'iletişim'],
+  },
+  {
+    id: 'kargo',
+    label: 'Kargo / Kurye',
+    topics: ['genel', 'hız', 'güven', 'fiyat', 'iletişim', 'paketleme'],
+  },
+  {
+    id: 'cicekci',
+    label: 'Çiçekçi',
+    topics: ['genel', 'tazelik', 'çeşitlilik', 'fiyat', 'sunum', 'teslimat'],
+  },
+  {
+    id: 'kuyumcu',
+    label: 'Kuyumcu',
+    topics: ['genel', 'kalite', 'çeşitlilik', 'fiyat', 'güven', 'personel'],
+  },
+  {
+    id: 'terzi',
+    label: 'Terzi',
+    topics: ['genel', 'işçilik', 'hız', 'fiyat', 'kalite', 'iletişim'],
+  },
+  {
+    id: 'ayakkabici',
+    label: 'Ayakkabı Mağazası',
+    topics: ['genel', 'kalite', 'çeşitlilik', 'fiyat', 'personel', 'ortam'],
+  },
+  {
+    id: 'mobilya',
+    label: 'Mobilya Mağazası',
+    topics: ['genel', 'kalite', 'çeşitlilik', 'fiyat', 'teslimat', 'montaj', 'personel'],
+  },
+  {
+    id: 'elektronik',
+    label: 'Elektronik / Teknoloji',
+    topics: ['genel', 'ürün kalitesi', 'çeşitlilik', 'fiyat', 'personel', 'garanti'],
+  },
+  {
+    id: 'bilgisayar_servis',
+    label: 'Bilgisayar Servisi',
+    topics: ['genel', 'işçilik', 'hız', 'fiyat', 'güven', 'iletişim'],
+  },
+  {
+    id: 'klima_servis',
+    label: 'Klima Servisi',
+    topics: ['genel', 'işçilik', 'hız', 'fiyat', 'güvenlik', 'malzeme'],
+  },
+  {
+    id: 'temizlik',
+    label: 'Temizlik Şirketi',
+    topics: ['genel', 'temizlik', 'hız', 'fiyat', 'güven', 'ekip', 'iletişim'],
+  },
+  {
+    id: 'bahce',
+    label: 'Bahçe / Peyzaj',
+    topics: ['genel', 'işçilik', 'hız', 'fiyat', 'malzeme', 'estetik'],
+  },
+  {
+    id: 'insaat',
+    label: 'İnşaat / Tadilat',
+    topics: ['genel', 'işçilik', 'hız', 'fiyat', 'malzeme', 'güven', 'temizlik'],
+  },
+  {
+    id: 'fotografci',
+    label: 'Fotoğrafçı / Stüdyo',
+    topics: ['genel', 'kalite', 'hız', 'fiyat', 'atmosfer', 'personel'],
+  },
+  {
+    id: 'seyahat',
+    label: 'Seyahat Acentesi',
+    topics: ['genel', 'hizmet', 'fiyat', 'güven', 'iletişim', 'organizasyon'],
+  },
+  {
+    id: 'sigorta',
+    label: 'Sigorta',
+    topics: ['genel', 'hizmet', 'güven', 'fiyat', 'iletişim', 'hasar_süreci'],
+  },
+  {
     id: 'diger',
     label: 'Diğer',
     topics: ['genel', 'servis', 'fiyat', 'temizlik', 'hız', 'personel'],

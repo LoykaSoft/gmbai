@@ -34,7 +34,16 @@ CREATE POLICY "Firma kendi bildirimlerini görür" ON notifications
   );
 ```
 
-### Migration 3 — Sistem Şablonları (Hazır Şablonlar)
+### Migration 3 — Çok Sektör Desteği (YENİ)
+```sql
+-- firms.sector CHECK constraint'i kaldır
+ALTER TABLE public.firms DROP CONSTRAINT IF EXISTS firms_sector_check;
+
+-- templates.sector CHECK constraint'i kaldır
+ALTER TABLE public.templates DROP CONSTRAINT IF EXISTS templates_sector_check;
+```
+
+### Migration 4 — Sistem Şablonları (Hazır Şablonlar)
 ```sql
 INSERT INTO templates (name, sector, rating_range, topic, opening, body, closing, is_system)
 VALUES
@@ -243,7 +252,8 @@ VALUES ('AUTH_KULLANICI_UUID', 'FIRMA_UUID', 'firm_user', 'İşletme Adı');
 
 - [ ] Migration 1: `info_card` kolonu
 - [ ] Migration 2: `notifications` tablosu
-- [ ] Migration 3: Sistem şablonları eklendi
+- [ ] Migration 3: Çok sektör desteği — CHECK constraint kaldır
+- [ ] Migration 4: Sistem şablonları eklendi
 - [ ] Google Cloud: Proje ve API'ler aktif
 - [ ] Google Cloud: OAuth credentials oluşturuldu
 - [ ] `.env.local` dosyası oluşturuldu

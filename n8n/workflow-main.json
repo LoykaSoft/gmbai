@@ -90,7 +90,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id.replace(/'/g, \"''\") }}', '{{ $json.reviewer_name.replace(/'/g, \"''\") }}', {{ $json.reviewer_id ? `'${$json.reviewer_id.replace(/'/g, \"''\")}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', {{ $json.review_date ? `'${String($json.review_date).replace(/'/g, "''")}'` : 'NULL' }}, 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
+        "query": "INSERT INTO reviews (firm_id, gmb_review_id, reviewer_name, reviewer_id, rating, review_text, review_date, status, created_at)\nVALUES ('{{ $json.firm_id }}', '{{ $json.gmb_review_id.replace(/'/g, \"''\") }}', '{{ $json.reviewer_name.replace(/'/g, \"''\") }}', {{ $json.reviewer_id ? `'${$json.reviewer_id.replace(/'/g, \"''\")}'` : 'NULL' }}, {{ $json.rating }}, '{{ $json.review_text.replace(/'/g, \"''\") }}', {{ $json.review_date ? `'${String($json.review_date).replace(/'/g, \"''\")}'` : 'NULL' }}, 'pending', NOW())\nON CONFLICT (gmb_review_id) DO NOTHING\nRETURNING id, firm_id, gmb_review_id, reviewer_name, rating, review_text, review_date, status"
       },
       "id": "save-review",
       "name": "Yorumu Kaydet (Tekrar Önle)",
@@ -127,7 +127,7 @@
         "messages": {
           "values": [
             {
-              "content": "Aşağıdaki müşteri yorumunu analiz et ve YALNIZCA geçerli JSON döndür (başka hiçbir şey yazma):\n{\n  \"sentiment\": \"positive|negative|neutral\",\n  \"topics\": [\"servis\", \"yemek\", \"fiyat\", \"temizlik\", \"atmosfer\"],\n  \"importance_score\": 1,\n  \"keywords\": [\"kelime1\"],\n  \"has_critical_keyword\": false,\n  \"critical_keywords\": []\n}\n\nKritik kelimeler: zehirlendim, sağlık, hastane, şikayet, dava, iade, skandal, gıda zehirlenmesi"
+              "content": "Aşağıdaki müşteri yorumunu analiz et ve YALNIZCA geçerli JSON döndür (başka hiçbir şey yazma):\n{\n  \"sentiment\": \"positive|negative|neutral\",\n  \"topics\": [\"servis\", \"yemek\", \"fiyat\", \"temizlik\", \"atmosfer\", \"hizmet\", \"kalite\", \"personel\", \"teslimat\", \"paketleme\", \"hijyen\", \"bekleme\", \"iletisim\", \"diger\"],\n  \"importance_score\": 1,\n  \"keywords\": [\"kelime1\"],\n  \"has_critical_keyword\": false,\n  \"critical_keywords\": []\n}\n\nTopics listesinden yorumla ilgili olanları seç. Sektörden bağımsız olarak her tür işletme için geçerlidir.\n\nKritik kelimeler: zehirlendim, sağlık, hastane, şikayet, dava, iade, skandal, gıda zehirlenmesi, zarar, tehlike, kaza, yaralandım"
             },
             {
               "role": "user",

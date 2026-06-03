@@ -25,7 +25,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Wifi, WifiOff, Star, Save } from 'lucide-react'
+import { ArrowLeft, Wifi, WifiOff, Star, Save, UserPlus, Trash2 } from 'lucide-react'
+
+interface FirmUser {
+  id: string
+  full_name: string | null
+  role: string
+  created_at: string
+}
 
 const STATUS_LABELS: Record<ReviewStatus, { label: string; color: string }> = {
   pending: { label: 'Bekliyor', color: 'bg-yellow-100 text-yellow-700' },
@@ -39,17 +46,53 @@ interface Props {
   reviews: Review[]
   totalTokens: number
   totalCost: number
+  users: FirmUser[]
 }
 
-export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost }: Props) {
+export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost, users: initialUsers }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [users, setUsers] = useState<FirmUser[]>(initialUsers)
+  const [newEmail, setNewEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newFullName, setNewFullName] = useState('')
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [userError, setUserError] = useState('')
   const [name, setName] = useState(firm.name)
   const [sector, setSector] = useState(firm.sector)
   const [approvalMode, setApprovalMode] = useState(firm.approval_mode)
   const [responseLength, setResponseLength] = useState<ResponseLength>(firm.response_length)
   const [systemPrompt, setSystemPrompt] = useState(firm.system_prompt ?? '')
   const [isActive, setIsActive] = useState(firm.is_active)
+
+  async function handleCreateUser() {
+    if (!newEmail || !newPassword) return
+    setCreatingUser(true)
+    setUserError('')
+    try {
+      const res = await fetch(`/api/admin/firms/${firm.id}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail, password: newPassword, full_name: newFullName }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setUserError(data.error ?? 'Hata'); return }
+      setUsers(prev => [...prev, { id: data.id, full_name: newFullName || newEmail, role: 'firm_user', created_at: new Date().toISOString() }])
+      setNewEmail(''); setNewPassword(''); setNewFullName('')
+    } finally {
+      setCreatingUser(false)
+    }
+  }
+
+  async function handleDeleteUser(userId: string) {
+    if (!confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) return
+    const res = await fetch(`/api/admin/firms/${firm.id}/users`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    if (res.ok) setUsers(prev => prev.filter(u => u.id !== userId))
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -247,6 +290,73 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
           </CardContent>
         </Card>
       </div>
+
+      {/* Users */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Kullanıcılar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ad Soyad</TableHead>
+                <TableHead>Rol</TableHead>
+                <TableHead>Kayıt Tarihi</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-gray-400 py-6">
+                    Bu işletmeye ait kullanıcı yok.
+                  </TableCell>
+                </TableRow>
+              )}
+              {users.map(u => (
+                <TableRow key={u.id}>
+                  <TableCell className="text-sm font-medium">{u.full_name ?? '—'}</TableCell>
+                  <TableCell className="text-sm text-gray-500">{u.role}</TableCell>
+                  <TableCell className="text-sm text-gray-500">
+                    {new Date(u.created_at).toLocaleDateString('tr-TR')}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(u.id)}>
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-700">Yeni Kullanıcı Ekle</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Ad Soyad</Label>
+                <Input placeholder="Ali Veli" value={newFullName} onChange={e => setNewFullName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Email</Label>
+                <Input placeholder="ali@firma.com" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Şifre</Label>
+                <Input placeholder="••••••••" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+              </div>
+            </div>
+            {userError && <p className="text-sm text-red-500">{userError}</p>}
+            <Button onClick={handleCreateUser} disabled={creatingUser || !newEmail || !newPassword} size="sm">
+              <UserPlus className="w-4 h-4 mr-2" />
+              {creatingUser ? 'Oluşturuluyor...' : 'Kullanıcı Oluştur'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Reviews */}
       <Card>

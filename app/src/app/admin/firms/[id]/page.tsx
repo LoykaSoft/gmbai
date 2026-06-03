@@ -11,7 +11,7 @@ export default async function FirmDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: firmData }, { data: reviews }, { data: usageData }] = await Promise.all([
+  const [{ data: firmData }, { data: reviews }, { data: usageData }, { data: users }] = await Promise.all([
     supabase
       .from('firms')
       .select('id, name, sector, approval_mode, response_length, is_active, created_at, gmb_location_id, gmb_access_token, system_prompt, info_card')
@@ -19,6 +19,7 @@ export default async function FirmDetailPage({
       .single(),
     supabase.from('reviews').select('*').eq('firm_id', id).order('review_date', { ascending: false }),
     supabase.from('usage_logs').select('total_tokens, cost_usd').eq('firm_id', id),
+    supabase.from('profiles').select('id, full_name, role, created_at').eq('firm_id', id),
   ])
 
   if (!firmData) notFound()
@@ -35,6 +36,7 @@ export default async function FirmDetailPage({
       reviews={(reviews as Review[]) ?? []}
       totalTokens={totalTokens}
       totalCost={totalCost}
+      users={users ?? []}
     />
   )
 }

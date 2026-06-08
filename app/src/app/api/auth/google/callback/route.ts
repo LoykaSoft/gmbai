@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+
+function getServiceClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -72,20 +80,18 @@ export async function GET(request: Request) {
       const accountsData = await accountsRes.json()
       const accounts: Array<{ name: string }> = accountsData.accounts ?? []
 
-      if (accounts.length === 1) {
-        // Tek hesap — direkt seç
-        locationId = accounts[0].name
-      } else if (accounts.length > 1) {
-        // Birden fazla hesap — kullanıcı seçsin
+      if (accounts.length >= 1) {
+        // Her zaman kullanıcıya seçtir
         needsAccountSelection = true
       }
-      // 0 hesap — locationId null kalır, kullanıcı manuel girer
+      // 0 hesap — locationId null kalır, kullanıcı Settings'ten ekler
     }
   } catch {
     // Token kaydına devam et, hesap seçimi Settings'ten yapılır
   }
 
-  const { error: updateError } = await supabase
+  const serviceClient = getServiceClient()
+  const { data: savedRows, error: updateError } = await serviceClient
     .from('firms')
     .update({
       gmb_access_token: access_token,
@@ -94,8 +100,9 @@ export async function GET(request: Request) {
       ...(locationId ? { gmb_location_id: locationId } : {}),
     })
     .eq('id', profile.firm_id)
+    .select('id')
 
-  if (updateError) {
+  if (updateError || !savedRows?.length) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_save_failed`)
   }
 

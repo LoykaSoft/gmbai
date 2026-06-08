@@ -6,9 +6,9 @@ import { BlacklistWord, Firm } from '@/lib/types'
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; error?: string }>
+  searchParams: Promise<{ success?: string; error?: string; select_account?: string }>
 }) {
-  const { success, error } = await searchParams
+  const { success, error, select_account } = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,7 +25,7 @@ export default async function SettingsPage({
   const [{ data: firmData }, { data: blacklist }, { data: tokenCheck }] = await Promise.all([
     supabase
       .from('firms')
-      .select('id, name, sector, gmb_location_id, approval_mode, response_length, system_prompt, info_card, is_active')
+      .select('id, name, sector, gmb_location_id, gmb_account_selection_pending, approval_mode, response_length, system_prompt, info_card, is_active')
       .eq('id', profile.firm_id)
       .single(),
     supabase
@@ -51,6 +51,7 @@ export default async function SettingsPage({
       blacklist={(blacklist ?? []) as BlacklistWord[]}
       successMsg={success}
       errorMsg={error}
+      selectAccount={select_account === '1'}
     />
   )
 }

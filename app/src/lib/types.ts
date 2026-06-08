@@ -12,6 +12,14 @@ export interface InfoCard {
   forbidden_info?: string
 }
 
+export interface GmbAccount {
+  name: string        // "accounts/123456789"
+  accountName: string // görünen ad
+  type: string        // "LOCATION_GROUP" | "PERSONAL" vb.
+  verificationState?: string
+  vettedState?: string
+}
+
 export interface Firm {
   id: string
   name: string
@@ -19,6 +27,7 @@ export interface Firm {
   gmb_location_id: string | null
   gmb_access_token: string | null
   gmb_refresh_token: string | null
+  gmb_account_selection_pending: boolean
   system_prompt: string | null
   approval_mode: boolean
   response_length: ResponseLength

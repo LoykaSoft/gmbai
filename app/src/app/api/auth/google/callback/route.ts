@@ -20,7 +20,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=google_not_configured`)
   }
 
-  // Google'dan token al
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -44,28 +43,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_exchange_failed`)
   }
 
-  // GMB Account'u al (lokasyon ID)
-  let locationId: string | null = null
-  try {
-    const accountsRes = await fetch(
-      'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
-      { headers: { Authorization: `Bearer ${access_token}` } }
-    )
-    if (accountsRes.ok) {
-      const accounts = await accountsRes.json()
-      const firstAccount = accounts.accounts?.[0]
-      if (firstAccount) {
-        locationId = firstAccount.name
-      }
-    }
-  } catch {
-    // Lokasyon ID olmadan devam et, settings'ten güncellenir
-  }
-
-  // Supabase'e kaydet
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  // Require state to prevent CSRF — a missing or mismatched state is always rejected
   if (!user || !state || user.id !== state) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=auth_mismatch`)
   }
@@ -80,17 +59,48 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=no_firm`)
   }
 
+  // GMB hesap listesini çek
+  let locationId: string | null = null
+  let needsAccountSelection = false
+
+  try {
+    const accountsRes = await fetch(
+      'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    )
+    if (accountsRes.ok) {
+      const accountsData = await accountsRes.json()
+      const accounts: Array<{ name: string }> = accountsData.accounts ?? []
+
+      if (accounts.length === 1) {
+        // Tek hesap — direkt seç
+        locationId = accounts[0].name
+      } else if (accounts.length > 1) {
+        // Birden fazla hesap — kullanıcı seçsin
+        needsAccountSelection = true
+      }
+      // 0 hesap — locationId null kalır, kullanıcı manuel girer
+    }
+  } catch {
+    // Token kaydına devam et, hesap seçimi Settings'ten yapılır
+  }
+
   const { error: updateError } = await supabase
     .from('firms')
     .update({
       gmb_access_token: access_token,
       gmb_refresh_token: refresh_token,
+      gmb_account_selection_pending: needsAccountSelection,
       ...(locationId ? { gmb_location_id: locationId } : {}),
     })
     .eq('id', profile.firm_id)
 
   if (updateError) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_save_failed`)
+  }
+
+  if (needsAccountSelection) {
+    return NextResponse.redirect(`${baseUrl}/panel/settings?success=google_connected&select_account=1`)
   }
 
   return NextResponse.redirect(`${baseUrl}/panel/settings?success=google_connected`)

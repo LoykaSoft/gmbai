@@ -19,6 +19,8 @@ export async function DELETE() {
     .update({
       gmb_access_token: null,
       gmb_refresh_token: null,
+      gmb_location_id: null,
+      gmb_account_selection_pending: false,
     })
     .eq('id', profile.firm_id)
 

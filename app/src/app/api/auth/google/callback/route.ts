@@ -67,44 +67,20 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=no_firm`)
   }
 
-  // GMB hesap listesini çek ve cache'le
-  let needsAccountSelection = false
-  let cachedAccounts: Array<{ name: string; accountName: string; type: string }> = []
-
-  try {
-    const accountsRes = await fetch(
-      'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
-      { headers: { Authorization: `Bearer ${access_token}` } }
-    )
-    if (accountsRes.ok) {
-      const accountsData = await accountsRes.json()
-      cachedAccounts = accountsData.accounts ?? []
-      if (cachedAccounts.length >= 1) {
-        needsAccountSelection = true
-      }
-    }
-  } catch {
-    // Token kaydına devam et, hesap seçimi Settings'ten yapılır
-  }
-
   const serviceClient = getServiceClient()
   const { data: savedRows, error: updateError } = await serviceClient
     .from('firms')
     .update({
       gmb_access_token: access_token,
       gmb_refresh_token: refresh_token,
-      gmb_account_selection_pending: needsAccountSelection,
-      gmb_accounts: cachedAccounts.length > 0 ? cachedAccounts : null,
+      gmb_account_selection_pending: true,
+      gmb_accounts: null,
     })
     .eq('id', profile.firm_id)
     .select('id')
 
   if (updateError || !savedRows?.length) {
     return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_save_failed`)
-  }
-
-  if (needsAccountSelection) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?success=google_connected&select_account=1`)
   }
 
   return NextResponse.redirect(`${baseUrl}/panel/settings?success=google_connected`)

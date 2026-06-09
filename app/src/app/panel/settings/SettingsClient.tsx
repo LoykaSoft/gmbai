@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Firm, BlacklistWord, InfoCard, GmbAccount } from '@/lib/types'
+import { Firm, BlacklistWord, InfoCard } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,13 +16,6 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
-import {
   CheckCircle2,
   AlertCircle,
   Link as LinkIcon,
@@ -32,7 +25,6 @@ import {
   Save,
   Building2,
   Loader2,
-  RefreshCw,
 } from 'lucide-react'
 
 interface Props {
@@ -40,7 +32,6 @@ interface Props {
   blacklist: BlacklistWord[]
   successMsg?: string
   errorMsg?: string
-  selectAccount?: boolean
 }
 
 export default function SettingsClient({
@@ -48,7 +39,6 @@ export default function SettingsClient({
   blacklist: initialBlacklist,
   successMsg,
   errorMsg,
-  selectAccount,
 }: Props) {
   const router = useRouter()
 
@@ -75,57 +65,35 @@ export default function SettingsClient({
   const [disconnecting, setDisconnecting] = useState(false)
   const [blacklistLoading, setBlacklistLoading] = useState(false)
 
-  // İşletme seçim modal state
-  const [accountModalOpen, setAccountModalOpen] = useState(
-    !!(selectAccount || firm.gmb_account_selection_pending)
-  )
-  const [accounts, setAccounts] = useState<GmbAccount[]>([])
-  const [accountsLoading, setAccountsLoading] = useState(false)
-  const [accountsError, setAccountsError] = useState<string | null>(null)
-  const [selectingAccount, setSelectingAccount] = useState(false)
+  // Account ID manuel giriş
+  const [accountId, setAccountId] = useState(firm.gmb_location_id?.replace('accounts/', '') ?? '')
+  const [accountIdSaving, setAccountIdSaving] = useState(false)
+  const [accountIdError, setAccountIdError] = useState<string | null>(null)
 
-  const loadAccounts = useCallback(async (refresh = false) => {
-    setAccountsLoading(true)
-    setAccountsError(null)
-    try {
-      const url = refresh ? '/api/auth/google/accounts?refresh=1' : '/api/auth/google/accounts'
-      const res = await fetch(url)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setAccountsError(body.error ?? 'İşletme listesi alınamadı.')
-        return
-      }
-      const data = await res.json()
-      setAccounts(data.accounts ?? [])
-    } catch {
-      setAccountsError('İşletme listesi alınamadı.')
-    } finally {
-      setAccountsLoading(false)
+  async function handleSaveAccountId() {
+    const trimmed = accountId.trim()
+    if (!trimmed) return
+    if (!/^\d+$/.test(trimmed)) {
+      setAccountIdError('Sadece rakam giriniz.')
+      return
     }
-  }, [])
-
-  useEffect(() => {
-    if (accountModalOpen && accounts.length === 0 && !accountsError) {
-      loadAccounts()
-    }
-  }, [accountModalOpen, accounts.length, accountsError, loadAccounts])
-
-  async function handleSelectAccount(account: GmbAccount) {
-    setSelectingAccount(true)
+    setAccountIdSaving(true)
+    setAccountIdError(null)
     try {
       const res = await fetch('/api/auth/google/select-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_name: account.name }),
+        body: JSON.stringify({ account_name: `accounts/${trimmed}` }),
       })
       if (!res.ok) {
-        setAccountsError('Hesap seçimi kaydedilemedi.')
+        setAccountIdError('Kaydedilemedi, lütfen tekrar deneyin.')
         return
       }
-      setAccountModalOpen(false)
+      setSavedSection('accountId')
+      setTimeout(() => setSavedSection(null), 2500)
       router.refresh()
     } finally {
-      setSelectingAccount(false)
+      setAccountIdSaving(false)
     }
   }
 
@@ -232,97 +200,6 @@ export default function SettingsClient({
         <p className="text-gray-500 mt-1">Google bağlantısı, ton, bilgi kartı ve kara liste</p>
       </div>
 
-      {/* İşletme Seçim Modalı */}
-      <Dialog open={accountModalOpen} onOpenChange={setAccountModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-blue-600" />
-                Google İşletme Hesabı Seçin
-              </DialogTitle>
-              <button
-                onClick={() => loadAccounts(true)}
-                disabled={accountsLoading}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
-                title="Listeyi güncelle"
-              >
-                <RefreshCw className={`w-4 h-4 ${accountsLoading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-            <DialogDescription>
-              Hangi işletmeyi bu hesaba bağlamak istediğinizi seçin.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-2">
-            {accountsLoading && (
-              <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">İşletmeler yükleniyor...</span>
-              </div>
-            )}
-
-            {accountsError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3">
-                <div className="flex items-center gap-2 text-red-700 text-sm">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {accountsError}
-                </div>
-                <button
-                  onClick={() => loadAccounts(true)}
-                  className="mt-2 text-xs text-red-600 underline hover:text-red-800"
-                >
-                  Tekrar dene
-                </button>
-              </div>
-            )}
-
-            {!accountsLoading && !accountsError && accounts.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6">
-                Google hesabınızda işletme profili bulunamadı.
-              </p>
-            )}
-
-            {!accountsLoading && accounts.length > 0 && (
-              <div className="space-y-2">
-                {accounts.map((account) => (
-                  <button
-                    key={account.name}
-                    disabled={selectingAccount}
-                    onClick={() => handleSelectAccount(account)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left group"
-                  >
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {account.accountName}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">{account.name}</p>
-                    </div>
-                    {selectingAccount && (
-                      <Loader2 className="w-4 h-4 animate-spin text-gray-400 ml-auto" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAccountModalOpen(false)}
-              >
-                Daha sonra seç
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Bildirimler */}
       {successMsg === 'google_connected' && (
         <div className="mb-6 flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 rounded-lg px-4 py-3 text-sm">
@@ -384,33 +261,61 @@ export default function SettingsClient({
               </div>
             )}
 
-            {/* Seçili işletme göster / değiştir */}
+            {/* Account ID manuel giriş */}
             {gmb_connected && (
-              <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                <div>
-                  {firm.gmb_location_id ? (
-                    <p className="text-xs text-gray-500">
-                      <span className="font-medium text-gray-700">Seçili işletme:</span>{' '}
-                      {firm.gmb_location_id}
-                    </p>
-                  ) : firm.gmb_account_selection_pending ? (
-                    <p className="text-xs text-amber-600 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      İşletme seçimi tamamlanmadı
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-400">İşletme seçilmedi</p>
-                  )}
+              <div className="pt-3 border-t border-gray-100 space-y-2">
+                <Label htmlFor="accountId" className="text-xs text-gray-600 flex items-center gap-1">
+                  <Building2 className="w-3 h-3" />
+                  Google İşletme Hesap ID
+                </Label>
+                <p className="text-xs text-gray-400">
+                  Google Business Profile panelinden hesap ID&apos;nizi öğrenin:{' '}
+                  <a
+                    href="https://business.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-gray-600"
+                  >
+                    business.google.com
+                  </a>
+                  {' '}→ URL&apos;deki sayısal ID&apos;yi girin. (Örn: URL&apos;de{' '}
+                  <span className="font-mono">accounts/</span>
+                  <span className="font-mono text-gray-600">123456789</span> yazıyorsa sadece{' '}
+                  <span className="font-mono text-gray-600">123456789</span> girin)
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="accountId"
+                    value={accountId}
+                    onChange={e => { setAccountId(e.target.value); setAccountIdError(null) }}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveAccountId()}
+                    placeholder="123456789"
+                    className="font-mono text-sm flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveAccountId}
+                    disabled={accountIdSaving || !accountId.trim()}
+                  >
+                    {accountIdSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : savedSection === 'accountId' ? (
+                      <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-400" />Kaydedildi</>
+                    ) : (
+                      <><Save className="w-3.5 h-3.5 mr-1" />Kaydet</>
+                    )}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => setAccountModalOpen(true)}
-                >
-                  <Building2 className="w-3 h-3 mr-1" />
-                  {firm.gmb_location_id ? 'İşletmeyi Değiştir' : 'İşletme Seç'}
-                </Button>
+                {accountIdError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />{accountIdError}
+                  </p>
+                )}
+                {firm.gmb_location_id && (
+                  <p className="text-xs text-gray-400">
+                    Mevcut: <span className="font-mono">{firm.gmb_location_id}</span>
+                  </p>
+                )}
               </div>
             )}
           </CardContent>

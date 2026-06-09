@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export async function DELETE() {
   const supabase = await createClient()
@@ -14,13 +15,19 @@ export async function DELETE() {
 
   if (!profile?.firm_id) return NextResponse.json({ error: 'No firm' }, { status: 404 })
 
-  const { error } = await supabase
+  const serviceClient = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { error } = await serviceClient
     .from('firms')
     .update({
       gmb_access_token: null,
       gmb_refresh_token: null,
       gmb_location_id: null,
       gmb_account_selection_pending: false,
+      gmb_accounts: null,
     })
     .eq('id', profile.firm_id)
 

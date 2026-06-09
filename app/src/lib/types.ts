@@ -28,6 +28,7 @@ export interface Firm {
   gmb_access_token: string | null
   gmb_refresh_token: string | null
   gmb_account_selection_pending: boolean
+  gmb_accounts: GmbAccount[] | null
   system_prompt: string | null
   approval_mode: boolean
   response_length: ResponseLength

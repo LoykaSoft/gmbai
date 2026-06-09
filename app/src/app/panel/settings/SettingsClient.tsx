@@ -32,6 +32,7 @@ import {
   Save,
   Building2,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 
 interface Props {
@@ -83,13 +84,15 @@ export default function SettingsClient({
   const [accountsError, setAccountsError] = useState<string | null>(null)
   const [selectingAccount, setSelectingAccount] = useState(false)
 
-  const loadAccounts = useCallback(async () => {
+  const loadAccounts = useCallback(async (refresh = false) => {
     setAccountsLoading(true)
     setAccountsError(null)
     try {
-      const res = await fetch('/api/auth/google/accounts')
+      const url = refresh ? '/api/auth/google/accounts?refresh=1' : '/api/auth/google/accounts'
+      const res = await fetch(url)
       if (!res.ok) {
-        setAccountsError('İşletme listesi alınamadı.')
+        const body = await res.json().catch(() => ({}))
+        setAccountsError(body.error ?? 'İşletme listesi alınamadı.')
         return
       }
       const data = await res.json()
@@ -102,10 +105,10 @@ export default function SettingsClient({
   }, [])
 
   useEffect(() => {
-    if (accountModalOpen) {
+    if (accountModalOpen && accounts.length === 0 && !accountsError) {
       loadAccounts()
     }
-  }, [accountModalOpen, loadAccounts])
+  }, [accountModalOpen, accounts.length, accountsError, loadAccounts])
 
   async function handleSelectAccount(account: GmbAccount) {
     setSelectingAccount(true)
@@ -233,12 +236,22 @@ export default function SettingsClient({
       <Dialog open={accountModalOpen} onOpenChange={setAccountModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-blue-600" />
-              Google İşletme Hesabı Seçin
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-blue-600" />
+                Google İşletme Hesabı Seçin
+              </DialogTitle>
+              <button
+                onClick={() => loadAccounts(true)}
+                disabled={accountsLoading}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
+                title="Listeyi güncelle"
+              >
+                <RefreshCw className={`w-4 h-4 ${accountsLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
             <DialogDescription>
-              Google hesabınızda birden fazla işletme profili bulundu. Hangi işletmeyi bu hesaba bağlamak istediğinizi seçin.
+              Hangi işletmeyi bu hesaba bağlamak istediğinizi seçin.
             </DialogDescription>
           </DialogHeader>
 
@@ -251,9 +264,17 @@ export default function SettingsClient({
             )}
 
             {accountsError && (
-              <div className="flex items-center gap-2 bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm mb-3">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {accountsError}
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3">
+                <div className="flex items-center gap-2 text-red-700 text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {accountsError}
+                </div>
+                <button
+                  onClick={() => loadAccounts(true)}
+                  className="mt-2 text-xs text-red-600 underline hover:text-red-800"
+                >
+                  Tekrar dene
+                </button>
               </div>
             )}
 

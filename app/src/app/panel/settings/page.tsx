@@ -25,7 +25,7 @@ export default async function SettingsPage({
   const [{ data: firmData }, { data: blacklist }, { data: tokenCheck }] = await Promise.all([
     supabase
       .from('firms')
-      .select('id, name, sector, gmb_location_id, gmb_account_selection_pending, approval_mode, response_length, system_prompt, info_card, is_active')
+      .select('id, name, sector, gmb_location_id, gmb_place_name, gmb_place_address, gmb_account_selection_pending, approval_mode, response_length, system_prompt, info_card, is_active')
       .eq('id', profile.firm_id)
       .single(),
     supabase

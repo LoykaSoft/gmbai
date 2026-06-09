@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Firm, BlacklistWord, InfoCard } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -65,35 +65,57 @@ export default function SettingsClient({
   const [disconnecting, setDisconnecting] = useState(false)
   const [blacklistLoading, setBlacklistLoading] = useState(false)
 
-  // Account ID manuel giriş
-  const [accountId, setAccountId] = useState(firm.gmb_location_id?.replace('accounts/', '') ?? '')
-  const [accountIdSaving, setAccountIdSaving] = useState(false)
-  const [accountIdError, setAccountIdError] = useState<string | null>(null)
+  // İşletme arama
+  interface PlaceResult { placeId: string; name: string; address: string; mapsUrl: string }
+  const [placeQuery, setPlaceQuery] = useState('')
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([])
+  const [placeSearching, setPlaceSearching] = useState(false)
+  const [placeError, setPlaceError] = useState<string | null>(null)
+  const [placeSaving, setPlaceSaving] = useState(false)
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  async function handleSaveAccountId() {
-    const trimmed = accountId.trim()
-    if (!trimmed) return
-    if (!/^\d+$/.test(trimmed)) {
-      setAccountIdError('Sadece rakam giriniz.')
+  function handlePlaceQueryChange(val: string) {
+    setPlaceQuery(val)
+    setPlaceError(null)
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    if (!val.trim() || val.trim().length < 2) {
+      setPlaceResults([])
       return
     }
-    setAccountIdSaving(true)
-    setAccountIdError(null)
+    searchTimeout.current = setTimeout(async () => {
+      setPlaceSearching(true)
+      try {
+        const res = await fetch(`/api/places/search?q=${encodeURIComponent(val.trim())}`)
+        if (!res.ok) { setPlaceError('Arama başarısız.'); return }
+        const data = await res.json()
+        setPlaceResults(data.places ?? [])
+      } catch {
+        setPlaceError('Arama başarısız.')
+      } finally {
+        setPlaceSearching(false)
+      }
+    }, 500)
+  }
+
+  async function handleSelectPlace(place: PlaceResult) {
+    setPlaceSaving(true)
+    setPlaceError(null)
     try {
       const res = await fetch('/api/auth/google/select-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_name: `accounts/${trimmed}` }),
+        body: JSON.stringify({
+          place_id: place.placeId,
+          place_name: place.name,
+          place_address: place.address,
+        }),
       })
-      if (!res.ok) {
-        setAccountIdError('Kaydedilemedi, lütfen tekrar deneyin.')
-        return
-      }
-      setSavedSection('accountId')
-      setTimeout(() => setSavedSection(null), 2500)
+      if (!res.ok) { setPlaceError('Kaydedilemedi, lütfen tekrar deneyin.'); return }
+      setPlaceQuery('')
+      setPlaceResults([])
       router.refresh()
     } finally {
-      setAccountIdSaving(false)
+      setPlaceSaving(false)
     }
   }
 
@@ -261,60 +283,69 @@ export default function SettingsClient({
               </div>
             )}
 
-            {/* Account ID manuel giriş */}
+            {/* İşletme arama */}
             {gmb_connected && (
               <div className="pt-3 border-t border-gray-100 space-y-2">
-                <Label htmlFor="accountId" className="text-xs text-gray-600 flex items-center gap-1">
+                <Label className="text-xs text-gray-600 flex items-center gap-1">
                   <Building2 className="w-3 h-3" />
-                  Google İşletme Hesap ID
+                  Google İşletmenizi Seçin
                 </Label>
-                <p className="text-xs text-gray-400">
-                  Google Business Profile panelinden hesap ID&apos;nizi öğrenin:{' '}
-                  <a
-                    href="https://business.google.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-gray-600"
-                  >
-                    business.google.com
-                  </a>
-                  {' '}→ URL&apos;deki sayısal ID&apos;yi girin. (Örn: URL&apos;de{' '}
-                  <span className="font-mono">accounts/</span>
-                  <span className="font-mono text-gray-600">123456789</span> yazıyorsa sadece{' '}
-                  <span className="font-mono text-gray-600">123456789</span> girin)
-                </p>
-                <div className="flex gap-2">
+
+                {/* Seçili işletme */}
+                {firm.gmb_place_name && (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{firm.gmb_place_name}</p>
+                      {firm.gmb_place_address && (
+                        <p className="text-xs text-gray-500 truncate">{firm.gmb_place_address}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Arama */}
+                <div className="relative">
                   <Input
-                    id="accountId"
-                    value={accountId}
-                    onChange={e => { setAccountId(e.target.value); setAccountIdError(null) }}
-                    onKeyDown={e => e.key === 'Enter' && handleSaveAccountId()}
-                    placeholder="123456789"
-                    className="font-mono text-sm flex-1"
+                    value={placeQuery}
+                    onChange={e => handlePlaceQueryChange(e.target.value)}
+                    placeholder={firm.gmb_place_name ? 'İşletmeyi değiştirmek için arayın...' : 'İşletme adı veya adres yazın...'}
+                    className="text-sm pr-8"
                   />
-                  <Button
-                    size="sm"
-                    onClick={handleSaveAccountId}
-                    disabled={accountIdSaving || !accountId.trim()}
-                  >
-                    {accountIdSaving ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : savedSection === 'accountId' ? (
-                      <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-400" />Kaydedildi</>
-                    ) : (
-                      <><Save className="w-3.5 h-3.5 mr-1" />Kaydet</>
-                    )}
-                  </Button>
+                  {placeSearching && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400 absolute right-2 top-2.5" />
+                  )}
                 </div>
-                {accountIdError && (
+
+                {placeError && (
                   <p className="text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />{accountIdError}
+                    <AlertCircle className="w-3 h-3" />{placeError}
                   </p>
                 )}
-                {firm.gmb_location_id && (
-                  <p className="text-xs text-gray-400">
-                    Mevcut: <span className="font-mono">{firm.gmb_location_id}</span>
-                  </p>
+
+                {/* Sonuçlar */}
+                {placeResults.length > 0 && (
+                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
+                    {placeResults.map(place => (
+                      <button
+                        key={place.placeId}
+                        disabled={placeSaving}
+                        onClick={() => handleSelectPlace(place)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left"
+                      >
+                        <Building2 className="w-4 h-4 text-blue-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{place.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{place.address}</p>
+                        </div>
+                        {placeSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!placeSearching && placeQuery.length >= 2 && placeResults.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-2">Sonuç bulunamadı.</p>
                 )}
               </div>
             )}

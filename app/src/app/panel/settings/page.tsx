@@ -22,10 +22,10 @@ export default async function SettingsPage({
 
   if (!profile?.firm_id) redirect('/login')
 
-  const [{ data: firmData }, { data: blacklist }, { data: tokenCheck }] = await Promise.all([
+  const [{ data: firmData }, { data: blacklist }] = await Promise.all([
     supabase
       .from('firms')
-      .select('id, name, sector, gmb_location_id, gmb_place_name, gmb_place_address, gmb_account_selection_pending, approval_mode, response_length, system_prompt, info_card, is_active')
+      .select('id, name, sector, gmb_location_id, gmb_place_name, gmb_place_address, gmb_account_selection_pending, approval_mode, response_length, system_prompt, info_card, is_active, gmb_access_token')
       .eq('id', profile.firm_id)
       .single(),
     supabase
@@ -33,17 +33,12 @@ export default async function SettingsPage({
       .select('*')
       .eq('firm_id', profile.firm_id)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('firms')
-      .select('gmb_access_token')
-      .eq('id', profile.firm_id)
-      .single(),
   ])
 
   if (!firmData) redirect('/panel')
 
   // Pass a boolean sentinel — never send the real token to the client
-  const firm = { ...firmData, gmb_access_token: tokenCheck?.gmb_access_token ? '1' : null }
+  const firm = { ...firmData, gmb_access_token: firmData.gmb_access_token ? '1' : null }
 
   return (
     <SettingsClient

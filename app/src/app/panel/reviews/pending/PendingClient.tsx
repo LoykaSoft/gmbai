@@ -28,48 +28,64 @@ export default function PendingClient({ initialReviews }: { initialReviews: Revi
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTexts, setEditTexts] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  async function handleApprove(id: string) {
+  async function runAction(id: string, doFetch: () => Promise<Response>, onSuccess: () => void) {
     setLoading(id)
+    setErrors(prev => ({ ...prev, [id]: '' }))
     try {
-      const res = await fetch(`/api/reviews/${id}/approve`, { method: 'PUT' })
-      if (!res.ok) return
-      setReviews(prev => prev.filter(r => r.id !== id))
+      const res = await doFetch()
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        // 409: yorum başka bir oturumda zaten işlenmiş — listeden düş
+        if (res.status === 409) {
+          setReviews(prev => prev.filter(r => r.id !== id))
+          router.refresh()
+          return
+        }
+        setErrors(prev => ({ ...prev, [id]: body.error ?? 'İşlem başarısız oldu.' }))
+        return
+      }
+      onSuccess()
       router.refresh()
+    } catch {
+      setErrors(prev => ({ ...prev, [id]: 'Bağlantı hatası, lütfen tekrar deneyin.' }))
     } finally {
       setLoading(null)
     }
   }
 
+  async function handleApprove(id: string) {
+    await runAction(
+      id,
+      () => fetch(`/api/reviews/${id}/approve`, { method: 'PUT' }),
+      () => setReviews(prev => prev.filter(r => r.id !== id))
+    )
+  }
+
   async function handleReject(id: string) {
-    setLoading(id)
-    try {
-      const res = await fetch(`/api/reviews/${id}/reject`, { method: 'PUT' })
-      if (!res.ok) return
-      setReviews(prev => prev.filter(r => r.id !== id))
-      router.refresh()
-    } finally {
-      setLoading(null)
-    }
+    await runAction(
+      id,
+      () => fetch(`/api/reviews/${id}/reject`, { method: 'PUT' }),
+      () => setReviews(prev => prev.filter(r => r.id !== id))
+    )
   }
 
   async function handleEditSave(review: Review) {
     const text = editTexts[review.id]
     if (!text?.trim()) return
-    setLoading(review.id)
-    try {
-      const res = await fetch(`/api/reviews/${review.id}/edit`, {
+    await runAction(
+      review.id,
+      () => fetch(`/api/reviews/${review.id}/edit`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response: text }),
-      })
-      if (!res.ok) return
-      setReviews(prev => prev.filter(r => r.id !== review.id))
-      setEditingId(null)
-      router.refresh()
-    } finally {
-      setLoading(null)
-    }
+      }),
+      () => {
+        setReviews(prev => prev.filter(r => r.id !== review.id))
+        setEditingId(null)
+      }
+    )
   }
 
   function startEdit(review: Review) {
@@ -116,6 +132,7 @@ export default function PendingClient({ initialReviews }: { initialReviews: Revi
           const isEditing = editingId === review.id
           const isLoading = loading === review.id
           const isCritical = review.rating <= 2
+          const actionError = errors[review.id]
 
           return (
             <Card
@@ -123,6 +140,9 @@ export default function PendingClient({ initialReviews }: { initialReviews: Revi
               className={`${isCritical ? 'border-red-200 bg-red-50/30' : 'border-yellow-200'}`}
             >
               <CardContent className="pt-4 pb-4">
+                {actionError && (
+                  <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md mb-3">{actionError}</p>
+                )}
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

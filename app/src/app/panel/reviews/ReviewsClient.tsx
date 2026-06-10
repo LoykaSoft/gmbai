@@ -65,6 +65,7 @@ export default function ReviewsClient({ initialReviews }: Props) {
   const [editDialog, setEditDialog] = useState<Review | null>(null)
   const [editText, setEditText] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const filtered = useMemo(() => {
     return reviews.filter(r => {
@@ -78,53 +79,64 @@ export default function ReviewsClient({ initialReviews }: Props) {
     })
   }, [reviews, statusFilter, ratingFilter, search])
 
-  async function handleApprove(id: string) {
+  async function runAction(id: string, doFetch: () => Promise<Response>, onSuccess: (updated: Review) => void) {
     setLoading(id)
+    setErrors(prev => ({ ...prev, [id]: '' }))
     try {
-      const res = await fetch(`/api/reviews/${id}/approve`, { method: 'PUT' })
-      if (!res.ok) return
+      const res = await doFetch()
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setErrors(prev => ({ ...prev, [id]: body.error ?? 'İşlem başarısız oldu.' }))
+        // 409: başka oturumda işlenmiş — güncel durumu çek
+        if (res.status === 409) router.refresh()
+        return
+      }
       const updated: Review = await res.json()
-      setReviews(prev => prev.map(r => r.id === id ? updated : r))
+      onSuccess(updated)
       router.refresh()
+    } catch {
+      setErrors(prev => ({ ...prev, [id]: 'Bağlantı hatası, lütfen tekrar deneyin.' }))
     } finally {
       setLoading(null)
     }
   }
 
+  async function handleApprove(id: string) {
+    await runAction(
+      id,
+      () => fetch(`/api/reviews/${id}/approve`, { method: 'PUT' }),
+      updated => setReviews(prev => prev.map(r => r.id === id ? updated : r))
+    )
+  }
+
   async function handleReject(id: string) {
-    setLoading(id)
-    try {
-      const res = await fetch(`/api/reviews/${id}/reject`, { method: 'PUT' })
-      if (!res.ok) return
-      const updated: Review = await res.json()
-      setReviews(prev => prev.map(r => r.id === id ? updated : r))
-      router.refresh()
-    } finally {
-      setLoading(null)
-    }
+    await runAction(
+      id,
+      () => fetch(`/api/reviews/${id}/reject`, { method: 'PUT' }),
+      updated => setReviews(prev => prev.map(r => r.id === id ? updated : r))
+    )
   }
 
   async function handleEditSave() {
     if (!editDialog) return
-    setLoading(editDialog.id)
-    try {
-      const res = await fetch(`/api/reviews/${editDialog.id}/edit`, {
+    const id = editDialog.id
+    await runAction(
+      id,
+      () => fetch(`/api/reviews/${id}/edit`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response: editText }),
-      })
-      if (!res.ok) return
-      const updated: Review = await res.json()
-      setReviews(prev => prev.map(r => r.id === editDialog.id ? updated : r))
-      setEditDialog(null)
-      router.refresh()
-    } finally {
-      setLoading(null)
-    }
+      }),
+      updated => {
+        setReviews(prev => prev.map(r => r.id === id ? updated : r))
+        setEditDialog(null)
+      }
+    )
   }
 
   function openEdit(review: Review) {
     setEditText(review.edited_response ?? review.ai_response ?? '')
+    setErrors(prev => ({ ...prev, [review.id]: '' }))
     setEditDialog(review)
   }
 
@@ -189,6 +201,9 @@ export default function ReviewsClient({ initialReviews }: Props) {
           return (
             <Card key={review.id} className={isPending ? 'border-yellow-200' : ''}>
               <CardContent className="pt-4 pb-3">
+                {errors[review.id] && (
+                  <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md mb-3">{errors[review.id]}</p>
+                )}
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -321,6 +336,9 @@ export default function ReviewsClient({ initialReviews }: Props) {
                   placeholder="Cevabı düzenleyin..."
                 />
               </div>
+              {errors[editDialog.id] && (
+                <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{errors[editDialog.id]}</p>
+              )}
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setEditDialog(null)}>İptal</Button>
                 <Button

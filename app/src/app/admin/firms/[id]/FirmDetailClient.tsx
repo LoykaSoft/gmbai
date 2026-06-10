@@ -52,6 +52,7 @@ interface Props {
 export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost, users: initialUsers }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [users, setUsers] = useState<FirmUser[]>(initialUsers)
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -79,6 +80,8 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
       if (!res.ok) { setUserError(data.error ?? 'Hata'); return }
       setUsers(prev => [...prev, { id: data.id, full_name: newFullName || newEmail, role: 'firm_user', created_at: new Date().toISOString() }])
       setNewEmail(''); setNewPassword(''); setNewFullName('')
+    } catch {
+      setUserError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setCreatingUser(false)
     }
@@ -86,16 +89,27 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
 
   async function handleDeleteUser(userId: string) {
     if (!confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) return
-    const res = await fetch(`/api/admin/firms/${firm.id}/users`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    })
-    if (res.ok) setUsers(prev => prev.filter(u => u.id !== userId))
+    setUserError('')
+    try {
+      const res = await fetch(`/api/admin/firms/${firm.id}/users`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setUserError(data.error ?? 'Kullanıcı silinemedi.')
+        return
+      }
+      setUsers(prev => prev.filter(u => u.id !== userId))
+    } catch {
+      setUserError('Bağlantı hatası, lütfen tekrar deneyin.')
+    }
   }
 
   async function handleSave() {
     setSaving(true)
+    setSaveError('')
     try {
       const res = await fetch(`/api/admin/firms/${firm.id}`, {
         method: 'PUT',
@@ -109,8 +123,14 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
           is_active: isActive,
         }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setSaveError(data.error ?? 'Kaydetme başarısız oldu.')
+        return
+      }
       router.refresh()
+    } catch {
+      setSaveError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setSaving(false)
     }
@@ -236,6 +256,10 @@ export default function FirmDetailClient({ firm, reviews, totalTokens, totalCost
                 />
               </button>
             </div>
+
+            {saveError && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{saveError}</p>
+            )}
 
             <Button onClick={handleSave} disabled={saving} className="w-full">
               <Save className="w-4 h-4 mr-2" />

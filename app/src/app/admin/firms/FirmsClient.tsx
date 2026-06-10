@@ -54,10 +54,13 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
   const [form, setForm] = useState<FirmForm>(defaultForm)
   const [loading, setLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [formError, setFormError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
 
   function openCreate() {
     setEditingFirm(null)
     setForm(defaultForm)
+    setFormError('')
     setDialogOpen(true)
   }
 
@@ -69,12 +72,14 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
       approval_mode: firm.approval_mode,
       response_length: firm.response_length,
     })
+    setFormError('')
     setDialogOpen(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    setFormError('')
     try {
       if (editingFirm) {
         const res = await fetch(`/api/admin/firms/${editingFirm.id}`, {
@@ -82,7 +87,11 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          setFormError(body.error ?? 'Kaydetme başarısız oldu.')
+          return
+        }
         const updated: Firm = await res.json()
         setFirms(prev => prev.map(f => (f.id === updated.id ? { ...f, ...updated } : f)))
       } else {
@@ -91,12 +100,18 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          setFormError(body.error ?? 'Kaydetme başarısız oldu.')
+          return
+        }
         const created: Firm = await res.json()
         setFirms(prev => [created, ...prev])
       }
       setDialogOpen(false)
       router.refresh()
+    } catch {
+      setFormError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setLoading(false)
     }
@@ -104,12 +119,19 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
 
   async function handleDelete(id: string) {
     setLoading(true)
+    setDeleteError('')
     try {
       const res = await fetch(`/api/admin/firms/${id}`, { method: 'DELETE' })
-      if (!res.ok) return
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setDeleteError(body.error ?? 'Silme başarısız oldu.')
+        return
+      }
       setFirms(prev => prev.filter(f => f.id !== id))
       setDeleteConfirm(null)
       router.refresh()
+    } catch {
+      setDeleteError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setLoading(false)
     }
@@ -212,7 +234,7 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
                       variant="ghost"
                       size="sm"
                       className="text-red-500 hover:text-red-700"
-                      onClick={() => setDeleteConfirm(firm.id)}
+                      onClick={() => { setDeleteError(''); setDeleteConfirm(firm.id) }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -287,6 +309,10 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
               <Label htmlFor="approval_mode">Onay Modu Açık</Label>
             </div>
 
+            {formError && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{formError}</p>
+            )}
+
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 İptal
@@ -308,6 +334,9 @@ export default function FirmsClient({ initialFirms }: { initialFirms: Firm[] }) 
           <p className="text-gray-600 text-sm mt-2">
             Bu işletmeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
           </p>
+          {deleteError && (
+            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md mt-2">{deleteError}</p>
+          )}
           <div className="flex justify-end gap-3 mt-4">
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
               İptal

@@ -64,6 +64,7 @@ export default function SettingsClient({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
   const [blacklistLoading, setBlacklistLoading] = useState(false)
+  const [blacklistError, setBlacklistError] = useState<string | null>(null)
 
   // İşletme arama
   interface PlaceResult { placeId: string; name: string; address: string; mapsUrl: string }
@@ -110,10 +111,16 @@ export default function SettingsClient({
           place_address: place.address,
         }),
       })
-      if (!res.ok) { setPlaceError('Kaydedilemedi, lütfen tekrar deneyin.'); return }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setPlaceError(body.error ?? 'Kaydedilemedi, lütfen tekrar deneyin.')
+        return
+      }
       setPlaceQuery('')
       setPlaceResults([])
       router.refresh()
+    } catch {
+      setPlaceError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setPlaceSaving(false)
     }
@@ -192,25 +199,41 @@ export default function SettingsClient({
     const w = newWord.trim().toLowerCase()
     if (!w) return
     setBlacklistLoading(true)
+    setBlacklistError(null)
     try {
       const res = await fetch('/api/settings/blacklist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ word: w }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setBlacklistError(body.error ?? 'Kelime eklenemedi.')
+        return
+      }
       const created: BlacklistWord = await res.json()
       setBlacklist(prev => [created, ...prev])
       setNewWord('')
+    } catch {
+      setBlacklistError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setBlacklistLoading(false)
     }
   }
 
   async function handleRemoveWord(id: string) {
-    const res = await fetch(`/api/settings/blacklist/${id}`, { method: 'DELETE' })
-    if (!res.ok) return
-    setBlacklist(prev => prev.filter(x => x.id !== id))
+    setBlacklistError(null)
+    try {
+      const res = await fetch(`/api/settings/blacklist/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setBlacklistError(body.error ?? 'Kelime silinemedi.')
+        return
+      }
+      setBlacklist(prev => prev.filter(x => x.id !== id))
+    } catch {
+      setBlacklistError('Bağlantı hatası, lütfen tekrar deneyin.')
+    }
   }
 
   const gmb_connected = !!firm.gmb_access_token
@@ -525,6 +548,11 @@ export default function SettingsClient({
                 Ekle
               </Button>
             </div>
+            {blacklistError && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />{blacklistError}
+              </p>
+            )}
             {blacklist.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {blacklist.map(item => (

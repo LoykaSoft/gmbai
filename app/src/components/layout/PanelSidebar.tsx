@@ -188,10 +188,13 @@ export default function PanelSidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === '/panel'
-              ? pathname === '/panel'
-              : pathname === href || pathname.startsWith(href + '/')
+          // En uzun eşleşen href aktif olur — /panel/reviews/pending'de
+          // hem "Yorumlarım" hem "Bekleyen Onaylar" aktif görünmesin
+          const matches = navItems
+            .map(n => n.href)
+            .filter(h => pathname === h || pathname.startsWith(h + '/'))
+          const bestMatch = matches.sort((a, b) => b.length - a.length)[0]
+          const active = href === bestMatch
           return (
             <Link
               key={href}

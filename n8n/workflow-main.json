@@ -49,20 +49,12 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=https://mybusiness.googleapis.com/v4/{{ $('Aktif Firmaları Çek').item.json.gmb_location_id }}/reviews?pageSize=50",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" }
-          ]
-        },
-        "options": { "response": { "response": { "neverError": true } } }
+        "jsCode": "// Her firma için GMB yorumlarını nextPageToken ile TÜM sayfalar bitene kadar çeker.\n// Firma başına tek birleşik öğe döndürür — akıştaki 1:1 indeks hizalaması korunur.\nconst firms = $('Aktif Firmaları Çek').all();\nconst tokens = $input.all();\nconst out = [];\n\nfor (let i = 0; i < tokens.length; i++) {\n  const firm = firms[i]?.json;\n  const accessToken = tokens[i]?.json?.access_token;\n\n  // Token yenilenemedi: boş sonuçla hizalamayı koru, diğer firmalar devam etsin\n  if (!firm || !accessToken) {\n    out.push({ json: { reviews: [] } });\n    continue;\n  }\n\n  const reviews = [];\n  let pageToken = null;\n  let pages = 0;\n  const MAX_PAGES = 20; // güvenlik limiti: 20 x 50 = firma başına en fazla 1000 yorum/çalıştırma\n\n  do {\n    const url = `https://mybusiness.googleapis.com/v4/${firm.gmb_location_id}/reviews?pageSize=50`\n      + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '');\n    let res;\n    try {\n      res = await this.helpers.httpRequest({\n        method: 'GET',\n        url,\n        headers: { Authorization: `Bearer ${accessToken}` },\n        json: true,\n      });\n    } catch (e) {\n      // GMB hatası (401/403/429/5xx): o ana kadar çekilenlerle devam et\n      break;\n    }\n    reviews.push(...(Array.isArray(res.reviews) ? res.reviews : []));\n    pageToken = res.nextPageToken || null;\n    pages++;\n    // Rate limit'e takılmamak için sayfalar arasında kısa bekleme\n    if (pageToken) await new Promise(r => setTimeout(r, 300));\n  } while (pageToken && pages < MAX_PAGES);\n\n  out.push({ json: { reviews } });\n}\n\nreturn out;"
       },
       "id": "get-gmb-reviews",
       "name": "GMB Yorumları Çek",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [900, 300]
     },
     {

@@ -20,8 +20,15 @@ export async function POST(
 
   if (!profile?.firm_id) return NextResponse.json({ error: 'No firm' }, { status: 404 })
 
-  const { review_text, rating } = await request.json()
-  if (!review_text) return NextResponse.json({ error: 'review_text required' }, { status: 400 })
+  const body = await request.json().catch(() => null)
+  const review_text = body?.review_text
+  const rating = body?.rating
+  if (!review_text || typeof review_text !== 'string') {
+    return NextResponse.json({ error: 'review_text required' }, { status: 400 })
+  }
+  if (review_text.length > 4000) {
+    return NextResponse.json({ error: 'Yorum metni çok uzun (en fazla 4000 karakter)' }, { status: 400 })
+  }
   const ratingNum = Number(rating)
   if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
     return NextResponse.json({ error: 'rating must be integer 1-5' }, { status: 400 })
@@ -64,29 +71,34 @@ Kapanış: ${template.closing}`
     medium: '3-4 cümle',
     long: 'detaylı, 5+ cümle',
   }
-  const userPrompt = `${rating} yıldızlı müşteri yorumu:
+  const userPrompt = `${ratingNum} yıldızlı müşteri yorumu:
 "${review_text}"
 
 Yukarıdaki yoruma ${lengthMap[firm.response_length] ?? '3-4 cümle'} uzunluğunda, şablona uygun profesyonel bir cevap yaz. Sadece cevap metnini döndür.`
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    max_tokens: 500,
-  })
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 500,
+    })
 
-  const response = completion.choices[0].message.content ?? ''
-  const tokensInput = completion.usage?.prompt_tokens ?? 0
-  const tokensOutput = completion.usage?.completion_tokens ?? 0
-  const costUsd = (tokensInput * 0.0000025) + (tokensOutput * 0.00001)
+    const response = completion.choices[0].message.content ?? ''
+    const tokensInput = completion.usage?.prompt_tokens ?? 0
+    const tokensOutput = completion.usage?.completion_tokens ?? 0
+    const costUsd = (tokensInput * 0.0000025) + (tokensOutput * 0.00001)
 
-  return NextResponse.json({
-    response,
-    tokens_input: tokensInput,
-    tokens_output: tokensOutput,
-    cost_usd: costUsd,
-  })
+    return NextResponse.json({
+      response,
+      tokens_input: tokensInput,
+      tokens_output: tokensOutput,
+      cost_usd: costUsd,
+    })
+  } catch (err) {
+    console.error('templates test OpenAI error:', err instanceof Error ? err.message : err)
+    return NextResponse.json({ error: 'AI cevabı üretilemedi, lütfen tekrar deneyin.' }, { status: 502 })
+  }
 }

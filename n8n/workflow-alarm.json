@@ -60,7 +60,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO notifications (firm_id, type, message, review_id, created_at)\nVALUES (\n  '{{ $json.firm_id }}',\n  'unanswered_review',\n  '{{ $json.message }}',\n  '{{ $json.review_id }}',\n  NOW()\n)\nON CONFLICT DO NOTHING"
+        "query": "INSERT INTO notifications (firm_id, type, message, review_id, created_at)\nVALUES (\n  '{{ $json.firm_id }}',\n  'unanswered_review',\n  '{{ $json.message.replace(/'/g, \"''\") }}',\n  '{{ $json.review_id }}',\n  NOW()\n)\nON CONFLICT DO NOTHING"
       },
       "id": "save-notification",
       "name": "Bildirimi Kaydet",

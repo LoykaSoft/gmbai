@@ -126,3 +126,16 @@ CREATE POLICY "Firma kendi bildirimlerini görür" ON notifications
 1. n8n → Ana Workflow → **Execute Workflow** (manual test)
 2. Supabase → reviews tablosunda yeni satırlar görünüyorsa çalışıyor
 3. Loglar için n8n → Executions sekmesi
+
+> Not: Ana workflow `reviews.updated_at` kolonunu kullanır. Supabase'de
+> `supabase/migrations/007_fixes_updated_at_and_indexes.sql` dosyasını
+> (veya güncel `schema.sql`'i) çalıştırdığından emin ol.
+
+---
+
+## 7. Güvenlik Uyarıları
+
+- Environment variables (DB şifresi, Google client secret, OpenAI key) **asla Git'e commit edilmez** — yalnızca Render/Vercel panelinden girilir.
+- `N8N_BASIC_AUTH_PASSWORD` için uzun ve rastgele bir şifre kullan (`openssl rand -base64 24`).
+- Workflow JSON dosyalarına API key veya şifre yazma; her zaman n8n **Credentials** sekmesini kullan.
+- Render loglarında ve ekran görüntülerinde gizli değerlerin görünmediğinden emin ol.

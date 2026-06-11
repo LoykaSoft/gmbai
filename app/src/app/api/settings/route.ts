@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+const FIRM_FIELDS = 'id, name, sector, gmb_location_id, approval_mode, response_length, system_prompt, info_card, is_active'
+const INFO_CARD_KEYS = ['address', 'hours', 'highlights', 'faq', 'forbidden_info'] as const
+
 export async function GET() {
   const supabase = await createClient()
 
@@ -15,25 +18,20 @@ export async function GET() {
 
   if (!profile?.firm_id) return NextResponse.json({ error: 'No firm' }, { status: 404 })
 
-  // gmb_access_token ve gmb_refresh_token select'e dahil edilmez — istemciye asla gönderilmez
+  // Token select edilir ama yalnızca boolean'a indirgenir — istemciye asla gönderilmez
   const { data: firm, error } = await supabase
     .from('firms')
-    .select('id, name, sector, gmb_location_id, approval_mode, response_length, system_prompt, info_card, is_active')
+    .select(`${FIRM_FIELDS}, gmb_access_token`)
     .eq('id', profile.firm_id)
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Ayarlar yüklenemedi' }, { status: 500 })
 
-  // GMB bağlantı durumunu ayrı sorgula (sadece boolean)
-  const { data: tokenCheck } = await supabase
-    .from('firms')
-    .select('gmb_access_token')
-    .eq('id', profile.firm_id)
-    .single()
+  const { gmb_access_token, ...safeFirm } = firm
 
   return NextResponse.json({
-    ...firm,
-    gmb_connected: !!tokenCheck?.gmb_access_token,
+    ...safeFirm,
+    gmb_connected: !!gmb_access_token,
   })
 }
 
@@ -51,12 +49,46 @@ export async function PUT(request: Request) {
 
   if (!profile?.firm_id) return NextResponse.json({ error: 'No firm' }, { status: 404 })
 
-  const body = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Geçersiz istek' }, { status: 400 })
+  }
 
-  const allowed = ['system_prompt', 'approval_mode', 'response_length', 'info_card']
   const updates: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
+
+  if ('system_prompt' in body) {
+    if (body.system_prompt !== null && typeof body.system_prompt !== 'string') {
+      return NextResponse.json({ error: 'system_prompt metin olmalı' }, { status: 400 })
+    }
+    updates.system_prompt = typeof body.system_prompt === 'string'
+      ? body.system_prompt.slice(0, 4000)
+      : null
+  }
+
+  if ('approval_mode' in body) {
+    if (typeof body.approval_mode !== 'boolean') {
+      return NextResponse.json({ error: 'approval_mode boolean olmalı' }, { status: 400 })
+    }
+    updates.approval_mode = body.approval_mode
+  }
+
+  if ('response_length' in body) {
+    if (!['short', 'medium', 'long'].includes(body.response_length)) {
+      return NextResponse.json({ error: 'Geçersiz response_length' }, { status: 400 })
+    }
+    updates.response_length = body.response_length
+  }
+
+  if ('info_card' in body) {
+    if (!body.info_card || typeof body.info_card !== 'object' || Array.isArray(body.info_card)) {
+      return NextResponse.json({ error: 'info_card nesne olmalı' }, { status: 400 })
+    }
+    const infoCard: Record<string, string> = {}
+    for (const key of INFO_CARD_KEYS) {
+      const val = (body.info_card as Record<string, unknown>)[key]
+      if (typeof val === 'string') infoCard[key] = val.slice(0, 2000)
+    }
+    updates.info_card = infoCard
   }
 
   if (Object.keys(updates).length === 0) {
@@ -67,9 +99,12 @@ export async function PUT(request: Request) {
     .from('firms')
     .update(updates)
     .eq('id', profile.firm_id)
-    .select('id, name, sector, gmb_location_id, approval_mode, response_length, system_prompt, info_card, is_active')
+    .select(FIRM_FIELDS)
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('settings PUT error:', error)
+    return NextResponse.json({ error: 'Ayarlar kaydedilemedi' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }

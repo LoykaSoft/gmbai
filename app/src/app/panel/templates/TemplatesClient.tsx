@@ -62,6 +62,8 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
   const [editTarget, setEditTarget] = useState<Template | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [listError, setListError] = useState('')
   const [test, setTest] = useState<TestState | null>(null)
 
   const systemTemplates = templates.filter(t => t.is_system)
@@ -70,6 +72,7 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
   function openCreate() {
     setForm(EMPTY_FORM)
     setEditTarget(null)
+    setSaveError('')
     setDialog('create')
   }
 
@@ -83,11 +86,13 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
       closing: t.closing,
     })
     setEditTarget(t)
+    setSaveError('')
     setDialog('edit')
   }
 
   async function handleSave() {
     setSaving(true)
+    setSaveError('')
     try {
       if (dialog === 'create') {
         const res = await fetch('/api/templates', {
@@ -95,7 +100,11 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          setSaveError(body.error ?? 'Şablon kaydedilemedi.')
+          return
+        }
         const created: Template = await res.json()
         setTemplates(prev => [created, ...prev])
       } else if (dialog === 'edit' && editTarget) {
@@ -104,20 +113,35 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          setSaveError(body.error ?? 'Şablon kaydedilemedi.')
+          return
+        }
         const updated: Template = await res.json()
         setTemplates(prev => prev.map(t => t.id === editTarget.id ? updated : t))
       }
       setDialog(null)
+    } catch {
+      setSaveError('Bağlantı hatası, lütfen tekrar deneyin.')
     } finally {
       setSaving(false)
     }
   }
 
   async function handleDelete(id: string) {
-    const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' })
-    if (!res.ok) return
-    setTemplates(prev => prev.filter(t => t.id !== id))
+    setListError('')
+    try {
+      const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setListError(body.error ?? 'Şablon silinemedi.')
+        return
+      }
+      setTemplates(prev => prev.filter(t => t.id !== id))
+    } catch {
+      setListError('Bağlantı hatası, lütfen tekrar deneyin.')
+    }
   }
 
   function openTest(t: Template) {
@@ -132,19 +156,24 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
 
   async function runTest() {
     if (!test) return
+    const current = test
     setTest(prev => prev ? { ...prev, loading: true, response: null } : null)
-    const res = await fetch(`/api/templates/${test.templateId}/test`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ review_text: test.reviewText, rating: test.rating }),
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      setTest(prev => prev ? { ...prev, loading: false, response: body.error ?? 'Test başarısız oldu.' } : null)
-      return
+    try {
+      const res = await fetch(`/api/templates/${current.templateId}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_text: current.reviewText, rating: current.rating }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setTest(prev => prev ? { ...prev, loading: false, response: body.error ?? 'Test başarısız oldu.' } : null)
+        return
+      }
+      const data = await res.json()
+      setTest(prev => prev ? { ...prev, loading: false, response: data.response ?? data.error } : null)
+    } catch {
+      setTest(prev => prev ? { ...prev, loading: false, response: 'Bağlantı hatası, lütfen tekrar deneyin.' } : null)
     }
-    const data = await res.json()
-    setTest(prev => prev ? { ...prev, loading: false, response: data.response ?? data.error } : null)
   }
 
   return (
@@ -159,6 +188,10 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
           Yeni Şablon
         </Button>
       </div>
+
+      {listError && (
+        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md mb-4">{listError}</p>
+      )}
 
       {/* Özel Şablonlar */}
       <section className="mb-8">
@@ -272,6 +305,9 @@ export default function TemplatesClient({ initialTemplates, firmSector }: Props)
                 placeholder="Sizi tekrar ağırlamayı dört gözle bekliyoruz."
               />
             </div>
+            {saveError && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{saveError}</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialog(null)}>İptal</Button>
               <Button onClick={handleSave} disabled={saving || !form.name.trim()}>

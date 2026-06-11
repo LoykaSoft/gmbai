@@ -54,6 +54,7 @@ create table if not exists public.reviews (
   cost_usd numeric(10, 6),
   published_at timestamptz,
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   unique(firm_id, gmb_review_id)
 );
 
@@ -344,3 +345,10 @@ create index if not exists idx_usage_logs_created_at on public.usage_logs(create
 create index if not exists idx_profiles_firm_id on public.profiles(firm_id);
 create index if not exists idx_notifications_firm_id on public.notifications(firm_id);
 create index if not exists idx_notifications_review_id on public.notifications(review_id);
+create index if not exists idx_reviews_firm_status on public.reviews(firm_id, status);
+create index if not exists idx_reviews_firm_review_date on public.reviews(firm_id, review_date desc);
+create index if not exists idx_reviews_pending_with_ai
+  on public.reviews(created_at asc)
+  where status = 'pending' and ai_response is not null;
+create index if not exists idx_notifications_firm_created
+  on public.notifications(firm_id, created_at desc);

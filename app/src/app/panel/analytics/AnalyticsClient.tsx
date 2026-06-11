@@ -99,27 +99,36 @@ export default function AnalyticsClient({ reviews, analysis }: Props) {
 
   // --- Puan trendi ---
   const trend = useMemo(() => {
-    const buckets = new Map<string, { total: number; count: number }>()
+    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+    // Sıralama her zaman sayısal anahtar üzerinden yapılır (ay adları alfabetik sıralanamaz)
+    const buckets = new Map<string, { label: string; total: number; count: number }>()
     for (const r of reviews) {
       const d = new Date(r.review_date)
+      if (isNaN(d.getTime())) continue
       let key: string
+      let label: string
       if (trendPeriod === 'weekly') {
-        const startOfYear = new Date(d.getFullYear(), 0, 1)
-        const week = Math.ceil(((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
-        key = `${d.getFullYear()}-H${String(week).padStart(2, '0')}`
+        // ISO hafta numarası
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+        const day = date.getUTCDay() || 7
+        date.setUTCDate(date.getUTCDate() + 4 - day)
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+        const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+        key = `${date.getUTCFullYear()}-${String(week).padStart(2, '0')}`
+        label = `${date.getUTCFullYear()} H${week}`
       } else {
-        const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
-        key = `${months[d.getMonth()]} ${d.getFullYear()}`
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        label = `${months[d.getMonth()]} ${d.getFullYear()}`
       }
-      const b = buckets.get(key) ?? { total: 0, count: 0 }
+      const b = buckets.get(key) ?? { label, total: 0, count: 0 }
       b.total += r.rating
       b.count += 1
       buckets.set(key, b)
     }
     return Array.from(buckets.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([period, b]) => ({
-        period,
+      .map(([, b]) => ({
+        period: b.label,
         'Ort. Puan': Math.round((b.total / b.count) * 10) / 10,
         'Yorum Sayısı': b.count,
       }))

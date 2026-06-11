@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+
+const OAUTH_STATE_COOKIE = 'gmb_oauth_state'
 
 function getServiceClient() {
   return createServiceClient(
@@ -9,15 +11,27 @@ function getServiceClient() {
   )
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const state = searchParams.get('state') // user.id
+  const state = searchParams.get('state')
   const error = searchParams.get('error')
   const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
+  const redirectWithCleanup = (path: string) => {
+    const res = NextResponse.redirect(`${baseUrl}${path}`)
+    res.cookies.delete(OAUTH_STATE_COOKIE)
+    return res
+  }
+
   if (error || !code) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=google_oauth_denied`)
+    return redirectWithCleanup('/panel/settings?error=google_oauth_denied')
+  }
+
+  // CSRF koruması: state, OAuth başlangıcında set edilen nonce cookie'siyle eşleşmeli
+  const expectedState = request.cookies.get(OAUTH_STATE_COOKIE)?.value
+  if (!state || !expectedState || state !== expectedState) {
+    return redirectWithCleanup('/panel/settings?error=auth_mismatch')
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID
@@ -25,7 +39,24 @@ export async function GET(request: Request) {
   const redirectUri = process.env.GOOGLE_REDIRECT_URI
 
   if (!clientId || !clientSecret || !redirectUri) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=google_not_configured`)
+    return redirectWithCleanup('/panel/settings?error=google_not_configured')
+  }
+
+  // Token değişiminden önce oturumu doğrula — code'u boşa harcama
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return redirectWithCleanup('/panel/settings?error=auth_mismatch')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('firm_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.firm_id) {
+    return redirectWithCleanup('/panel/settings?error=no_firm')
   }
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -41,30 +72,14 @@ export async function GET(request: Request) {
   })
 
   if (!tokenRes.ok) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_exchange_failed`)
+    return redirectWithCleanup('/panel/settings?error=token_exchange_failed')
   }
 
   const tokens = await tokenRes.json()
   const { access_token, refresh_token } = tokens
 
   if (!access_token || !refresh_token) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_exchange_failed`)
-  }
-
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !state || user.id !== state) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=auth_mismatch`)
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('firm_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.firm_id) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=no_firm`)
+    return redirectWithCleanup('/panel/settings?error=token_exchange_failed')
   }
 
   const serviceClient = getServiceClient()
@@ -80,8 +95,8 @@ export async function GET(request: Request) {
     .select('id')
 
   if (updateError || !savedRows?.length) {
-    return NextResponse.redirect(`${baseUrl}/panel/settings?error=token_save_failed`)
+    return redirectWithCleanup('/panel/settings?error=token_save_failed')
   }
 
-  return NextResponse.redirect(`${baseUrl}/panel/settings?success=google_connected`)
+  return redirectWithCleanup('/panel/settings?success=google_connected')
 }

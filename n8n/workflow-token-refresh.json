@@ -19,21 +19,11 @@
         "query": "SELECT id, name, gmb_refresh_token FROM firms WHERE is_active = true AND gmb_refresh_token IS NOT NULL"
       },
       "id": "get-firms",
-      "name": "Token'lı Firmaları Çek",
+      "name": "Tokenli Firmalari Cek",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [460, 300],
       "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem"
-      },
-      "id": "loop-firms",
-      "name": "Her Firma İçin",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [680, 300]
     },
     {
       "parameters": {
@@ -55,7 +45,7 @@
       "name": "Token Yenile",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 300]
+      "position": [680, 300]
     },
     {
       "parameters": {
@@ -77,27 +67,39 @@
       "name": "Token Geldi mi?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1120, 300]
+      "position": [900, 300]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE firms SET gmb_access_token = '{{ $json.access_token }}' WHERE id = '{{ $('Her Firma İçin').item.json.id }}'"
+        "query": "UPDATE firms SET gmb_access_token = '{{ $json.access_token.replace(/'/g, \"''\") }}' WHERE id = '{{ $('Tokenli Firmalari Cek').item.json.id }}'"
       },
       "id": "save-token",
       "name": "Yeni Token'ı Kaydet",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1340, 200],
+      "position": [1120, 200],
       "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE firms SET gmb_access_token = NULL WHERE id = '{{ $('Her Firma İçin').item.json.id }}'"
+        "query": "UPDATE firms SET gmb_access_token = NULL WHERE id = '{{ $('Tokenli Firmalari Cek').item.json.id }}'"
       },
       "id": "clear-token",
       "name": "Token'ı Temizle (Bağlantı Koptu)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 400],
+      "credentials": { "postgres": { "id": "supabase-pg", "name": "Supabase PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (firm_id, type, message, created_at)\nVALUES (\n  '{{ $('Tokenli Firmalari Cek').item.json.id }}',\n  'google_connection_lost',\n  'Google bağlantınız koptu. Lütfen Ayarlar sayfasından Google hesabınızı yeniden bağlayın.',\n  NOW()\n)\nON CONFLICT DO NOTHING"
+      },
+      "id": "notify-connection-lost",
+      "name": "Bağlantı Koptu Bildirimi",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [1340, 400],
@@ -105,21 +107,21 @@
     }
   ],
   "connections": {
-    "Her 6 Saatte Bir": { "main": [[{ "node": "Token'lı Firmaları Çek", "type": "main", "index": 0 }]] },
-    "Token'lı Firmaları Çek": { "main": [[{ "node": "Her Firma İçin", "type": "main", "index": 0 }]] },
-    "Her Firma İçin": { "main": [[{ "node": "Token Yenile", "type": "main", "index": 0 }]] },
+    "Her 6 Saatte Bir": { "main": [[{ "node": "Tokenli Firmalari Cek", "type": "main", "index": 0 }]] },
+    "Tokenli Firmalari Cek": { "main": [[{ "node": "Token Yenile", "type": "main", "index": 0 }]] },
     "Token Yenile": { "main": [[{ "node": "Token Geldi mi?", "type": "main", "index": 0 }]] },
     "Token Geldi mi?": {
       "main": [
         [{ "node": "Yeni Token'ı Kaydet", "type": "main", "index": 0 }],
         [{ "node": "Token'ı Temizle (Bağlantı Koptu)", "type": "main", "index": 0 }]
       ]
-    }
+    },
+    "Token'ı Temizle (Bağlantı Koptu)": { "main": [[{ "node": "Bağlantı Koptu Bildirimi", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" },
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-05-23T00:00:00.000Z",
-  "versionId": "1"
+  "updatedAt": "2026-06-10T00:00:00.000Z",
+  "versionId": "2"
 }

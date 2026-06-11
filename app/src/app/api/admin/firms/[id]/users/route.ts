@@ -52,9 +52,15 @@ export async function POST(
   const { error } = await requireAdmin()
   if (error) return error
 
-  const body = await request.json()
-  if (!body.email || !body.password) {
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body.email !== 'string' || typeof body.password !== 'string') {
     return NextResponse.json({ error: 'email ve password zorunlu' }, { status: 400 })
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+    return NextResponse.json({ error: 'Geçersiz e-posta adresi' }, { status: 400 })
+  }
+  if (body.password.length < 8) {
+    return NextResponse.json({ error: 'Şifre en az 8 karakter olmalı' }, { status: 400 })
   }
 
   const service = getServiceClient()
@@ -81,16 +87,32 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await params
+  const { id } = await params
   const { error } = await requireAdmin()
   if (error) return error
 
-  const { userId } = await request.json()
-  if (!userId) return NextResponse.json({ error: 'userId zorunlu' }, { status: 400 })
+  const body = await request.json().catch(() => null)
+  const userId = body?.userId
+  if (!userId || typeof userId !== 'string') {
+    return NextResponse.json({ error: 'userId zorunlu' }, { status: 400 })
+  }
 
   const service = getServiceClient()
+
+  // Silinecek kullanıcı bu firmaya ait bir firm_user olmalı —
+  // rastgele bir userId ile admin veya başka firmanın kullanıcısı silinemez.
+  const { data: targetProfile } = await service
+    .from('profiles')
+    .select('firm_id, role')
+    .eq('id', userId)
+    .single()
+
+  if (!targetProfile || targetProfile.firm_id !== id || targetProfile.role === 'admin') {
+    return NextResponse.json({ error: 'Kullanıcı bu işletmeye ait değil' }, { status: 403 })
+  }
+
   const { error: authError } = await service.auth.admin.deleteUser(userId)
 
-  if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
+  if (authError) return NextResponse.json({ error: 'Kullanıcı silinemedi' }, { status: 500 })
   return NextResponse.json({ success: true })
 }

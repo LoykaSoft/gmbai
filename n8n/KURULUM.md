@@ -27,6 +27,7 @@ N8N_BASIC_AUTH_PASSWORD=guclu-bir-sifre-sec
 N8N_HOST=0.0.0.0
 N8N_PORT=5678
 N8N_PROTOCOL=https
+N8N_BLOCK_ENV_ACCESS_IN_NODE=false
 WEBHOOK_URL=https://gmbai-n8n.onrender.com
 DB_TYPE=postgresdb
 DB_POSTGRESDB_HOST=db.SUPABASE_PROJE_ID.supabase.co
@@ -40,6 +41,12 @@ GOOGLE_CLIENT_SECRET=GOOGLE_OAUTH_CLIENT_SECRET
 ```
 
 > Supabase bağlantı bilgilerini: Supabase → Settings → Database → Connection string bölümünden al.
+
+> **Önemli:** `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` olmadan workflow'lardaki
+> `{{ $env.GOOGLE_CLIENT_ID }}` ifadeleri "access to env vars denied" hatası verir.
+> Bu ayar, n8n editörüne erişimi olanların env değişkenlerini okuyabilmesi demektir —
+> bu yüzden basic auth şifresinin güçlü olması şarttır.
+> `GOOGLE_CLIENT_ID` ve `GOOGLE_CLIENT_SECRET`, Vercel'e girilen değerlerle aynı olmalıdır.
 
 ### Adım 4 — Deploy Et
 "Create Web Service" butonuna tıkla. Deploy tamamlanınca URL alırsın:

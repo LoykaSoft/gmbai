@@ -45,14 +45,25 @@ async function withFirmAccessToken(
     .eq('id', firmId)
     .single<FirmGmb>()
 
-  if (!firm?.gmb_access_token) return { res: null, error: 'not_connected' }
+  if (!firm?.gmb_access_token) {
+    console.log('[gmb] no access token for firm:', firmId)
+    return { res: null, error: 'not_connected' }
+  }
 
+  console.log('[gmb] calling GMB API with token length:', firm.gmb_access_token.length)
   let res = await fn(firm.gmb_access_token)
+  console.log('[gmb] GMB API response status:', res.status)
+
   if (res.status === 401 && firm.gmb_refresh_token) {
+    console.log('[gmb] token expired, refreshing...')
     const refreshed = await refreshAccessToken(firm.gmb_refresh_token)
-    if (!refreshed) return { res: null, error: 'token_refresh_failed' }
+    if (!refreshed) {
+      console.log('[gmb] token refresh failed')
+      return { res: null, error: 'token_refresh_failed' }
+    }
     await service.from('firms').update({ gmb_access_token: refreshed }).eq('id', firmId)
     res = await fn(refreshed)
+    console.log('[gmb] retry response status:', res.status)
   }
   return { res, error: null }
 }

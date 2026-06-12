@@ -111,13 +111,14 @@ export async function resolveLocationResourceName(
   if (accErr || !accountsRes?.ok) return { resourceName: null, error: accErr ?? 'accounts_fetch_failed' }
 
   const accountsData = await accountsRes.json()
+  console.log('[gmb] accounts response:', JSON.stringify(accountsData))
   const accounts: { name: string }[] = accountsData.accounts ?? []
 
   for (const account of accounts) {
     let pageToken: string | undefined
     do {
       const params = new URLSearchParams({
-        readMask: 'name,metadata',
+        readMask: 'name,title,storefrontAddress,metadata',
         pageSize: '100',
       })
       if (pageToken) params.set('pageToken', pageToken)
@@ -128,23 +129,26 @@ export async function resolveLocationResourceName(
           { headers: { Authorization: `Bearer ${token}` } }
         )
       )
-      if (error || !res?.ok) break
+      if (error || !res?.ok) {
+        console.log('[gmb] locations fetch failed:', error, res?.status)
+        break
+      }
 
       const data = await res.json()
+      console.log('[gmb] locations response for', account.name, ':', JSON.stringify(data))
+
       const locations: { name: string; title?: string; metadata?: { placeId?: string; mapsUri?: string } }[] = data.locations ?? []
 
-      // placeId ile eşleştir, bulamazsan mapsUri içinde placeId geçiyor mu diye bak
       const match = locations.find(l =>
         l.metadata?.placeId === placeId ||
         l.metadata?.mapsUri?.includes(placeId)
       )
       if (match) {
-        // v1 location adı "locations/{id}" — v4 için hesap önekiyle birleştirilir
         return { resourceName: `${account.name}/${match.name}`, error: null }
       }
 
-      // Hâlâ bulunamadıysa ve bu hesapta yalnızca 1 lokasyon varsa onu kullan
       if (locations.length === 1 && accounts.length === 1) {
+        console.log('[gmb] single location fallback:', locations[0].name)
         return { resourceName: `${account.name}/${locations[0].name}`, error: null }
       }
       pageToken = data.nextPageToken

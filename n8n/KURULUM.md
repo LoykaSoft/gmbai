@@ -21,31 +21,44 @@ Aşağıdaki ayarları gir:
 Render → Environment sekmesine şunları ekle:
 
 ```
-N8N_BASIC_AUTH_ACTIVE=true
-N8N_BASIC_AUTH_USER=admin
-N8N_BASIC_AUTH_PASSWORD=guclu-bir-sifre-sec
 N8N_HOST=0.0.0.0
 N8N_PORT=5678
 N8N_PROTOCOL=https
 N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+N8N_ENCRYPTION_KEY=SABIT_RASTGELE_DEGER
 WEBHOOK_URL=https://gmbai-n8n.onrender.com
 DB_TYPE=postgresdb
-DB_POSTGRESDB_HOST=db.SUPABASE_PROJE_ID.supabase.co
+DB_POSTGRESDB_HOST=aws-0-BOLGE.pooler.supabase.com
 DB_POSTGRESDB_PORT=5432
 DB_POSTGRESDB_DATABASE=postgres
-DB_POSTGRESDB_USER=postgres
+DB_POSTGRESDB_USER=postgres.SUPABASE_PROJE_REF
 DB_POSTGRESDB_PASSWORD=SUPABASE_DB_SIFRESI
-DB_POSTGRESDB_SCHEMA=public
+DB_POSTGRESDB_SCHEMA=n8n
 GOOGLE_CLIENT_ID=GOOGLE_OAUTH_CLIENT_ID
 GOOGLE_CLIENT_SECRET=GOOGLE_OAUTH_CLIENT_SECRET
 ```
 
-> Supabase bağlantı bilgilerini: Supabase → Settings → Database → Connection string bölümünden al.
+> **DB bağlantısı:** Host ve user değerlerini Supabase → Settings → Database →
+> **Connection pooling (Session mode, port 5432)** bölümünden birebir kopyala.
+> Doğrudan `db.<ref>.supabase.co` adresi bazı ortamlarda IPv6-only olduğu için
+> pooler adresi kullanılmalıdır.
+
+> **DB_POSTGRESDB_SCHEMA=n8n şart:** Önce Supabase SQL Editor'de
+> `create schema if not exists n8n;` çalıştır. n8n tabloları `public` şemasına
+> konursa Supabase REST API'sinden erişilebilir hale gelir — güvenlik riski.
+
+> **N8N_ENCRYPTION_KEY şart:** `openssl rand -hex 24` ile bir kez üret ve sabit tut.
+> Bu anahtar olmadan n8n her deploy'da yeni anahtar üretir ve kayıtlı
+> credential'lar çözülemez hale gelir. Render Free'nin diski kalıcı olmadığı için
+> n8n verisi (kullanıcı, credential, workflow) yalnızca bu Postgres ayarlarıyla kalıcı olur.
+
+> **Giriş:** n8n 2.x'te `N8N_BASIC_AUTH_*` değişkenleri kaldırıldı. İlk açılışta
+> "Set up owner account" ekranından yönetici hesabı oluşturulur; giriş bu hesapla yapılır.
 
 > **Önemli:** `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` olmadan workflow'lardaki
 > `{{ $env.GOOGLE_CLIENT_ID }}` ifadeleri "access to env vars denied" hatası verir.
 > Bu ayar, n8n editörüne erişimi olanların env değişkenlerini okuyabilmesi demektir —
-> bu yüzden basic auth şifresinin güçlü olması şarttır.
+> bu yüzden owner hesabı şifresinin güçlü olması şarttır.
 > `GOOGLE_CLIENT_ID` ve `GOOGLE_CLIENT_SECRET`, Vercel'e girilen değerlerle aynı olmalıdır.
 
 ### Adım 4 — Deploy Et
@@ -76,12 +89,15 @@ n8n açıldıktan sonra (**Settings → Credentials**):
 ### Supabase PostgreSQL
 - Type: `Postgres`
 - Name: `Supabase PostgreSQL`
-- Host: `db.SUPABASE_PROJE_ID.supabase.co`
+- Host: `aws-0-BOLGE.pooler.supabase.com` (Session pooler — env'dekiyle aynı)
 - Port: `5432`
 - Database: `postgres`
-- User: `postgres`
+- User: `postgres.SUPABASE_PROJE_REF`
 - Password: `SUPABASE_DB_SIFRESI`
 - SSL: `Enable`
+
+> Not: Bu credential workflow sorguları içindir ve uygulama tablolarına
+> (`public` şeması) erişir; n8n'in kendi tabloları ise `n8n` şemasındadır.
 
 ### OpenAI API
 - Type: `OpenAI API`

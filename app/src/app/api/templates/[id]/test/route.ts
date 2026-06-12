@@ -71,10 +71,16 @@ Kapanış: ${template.closing}`
     medium: '3-4 cümle',
     long: 'detaylı, 5+ cümle',
   }
-  const userPrompt = `${ratingNum} yıldızlı müşteri yorumu:
+  const sentiment = ratingNum <= 2 ? 'olumsuz' : ratingNum === 3 ? 'karışık' : 'olumlu'
+  const userPrompt = `${ratingNum} yıldızlı (${sentiment}) müşteri yorumu:
 "${review_text}"
 
-Yukarıdaki yoruma ${lengthMap[firm.response_length] ?? '3-4 cümle'} uzunluğunda, şablona uygun profesyonel bir cevap yaz. Sadece cevap metnini döndür.`
+Önemli: Yorum içeriğini dikkatlice oku ve tona uygun cevap ver.
+- Yorum olumsuz şikayet içeriyorsa: özür dile, sorunu ciddiye aldığını belirt, çözüm için iletişime davet et.
+- Yorum olumlu ise: samimi teşekkür et, tekrar davet et.
+- Yıldız sayısı ile yorum içeriği çelişiyorsa yorum içeriğini esas al.
+
+${lengthMap[firm.response_length] ?? '3-4 cümle'} uzunluğunda, şablona uygun profesyonel bir cevap yaz. Sadece cevap metnini döndür.`
 
   try {
     const completion = await openai.chat.completions.create({

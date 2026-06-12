@@ -131,11 +131,21 @@ export async function resolveLocationResourceName(
       if (error || !res?.ok) break
 
       const data = await res.json()
-      const locations: { name: string; metadata?: { placeId?: string } }[] = data.locations ?? []
-      const match = locations.find(l => l.metadata?.placeId === placeId)
+      const locations: { name: string; title?: string; metadata?: { placeId?: string; mapsUri?: string } }[] = data.locations ?? []
+
+      // placeId ile eşleştir, bulamazsan mapsUri içinde placeId geçiyor mu diye bak
+      const match = locations.find(l =>
+        l.metadata?.placeId === placeId ||
+        l.metadata?.mapsUri?.includes(placeId)
+      )
       if (match) {
         // v1 location adı "locations/{id}" — v4 için hesap önekiyle birleştirilir
         return { resourceName: `${account.name}/${match.name}`, error: null }
+      }
+
+      // Hâlâ bulunamadıysa ve bu hesapta yalnızca 1 lokasyon varsa onu kullan
+      if (locations.length === 1 && accounts.length === 1) {
+        return { resourceName: `${account.name}/${locations[0].name}`, error: null }
       }
       pageToken = data.nextPageToken
     } while (pageToken)
